@@ -1,5 +1,28 @@
 # 05 — Telegram Bot
 
+> ## ⚠️ SUPERSEDED BY OPENCLAW
+>
+> **[File 15 — OpenClaw](07-openclaw.md) is the recommended front door.** It gives
+> you WhatsApp plus a dozen other channels, MCP support, and a model that picks
+> tools for you instead of you typing exact commands.
+>
+> **Keep this file for two reasons:**
+> 1. **Fallback.** If WhatsApp automation gets your number banned, or OpenClaw
+>    proves too unstable, this works and has no ban risk.
+> 2. **It is much simpler to debug.** ~150 lines you fully understand. Build it
+>    first if OpenClaw is fighting you — it proves the queue works end to end.
+>
+> **Two changes if you use this now:**
+> - The hub is the **Oracle queue API** (file 04), not a Cloudflare Worker
+> - Drop the `/music` command — music is out of scope
+
+
+> ⚠️ **Anything marked ⚠️ in this file is unverified.** All of it is answered
+> by the prompt in [⚠️ Verify with AI](#-verify-with-ai) at the bottom — paste it
+> into Gemini or any web-enabled AI and update this file with the result.
+
+---
+
 **Goal:** the fastest way to reach your AI from your phone. One message, one
 answer. Also how you trigger jobs on your Mac and check your budget.
 
@@ -223,14 +246,14 @@ async def cmd_reel(update, ctx):
 async def cmd_stats(update, ctx):
     if not mine(update):
         return
-    # Filled in properly in file 11 once the dashboard tables exist
-    await update.message.reply_text("Stats coming in file 11.")
+    # Filled in properly in file 12 once the dashboard tables exist
+    await update.message.reply_text("Stats coming in file 12.")
 
 
 async def cmd_budget(update, ctx):
     if not mine(update):
         return
-    await update.message.reply_text("Budget view coming in file 11.")
+    await update.message.reply_text("Budget view coming in file 12.")
 
 
 async def on_text(update, ctx):
@@ -320,7 +343,7 @@ and answer using cloud models.
 
 ## Step 9 — Add a webhook route to the Worker
 
-Add this inside the `fetch` function in `src/index.js` from file 03:
+Add this inside the `fetch` function in `src/index.js` from file 04:
 
 ```js
 // Telegram calls this. Path includes the secret so random traffic bounces.
@@ -416,7 +439,7 @@ curl -s "https://api.telegram.org/bot$TOKEN/deleteWebhook"
 
 | Command | What it does | Where the work happens | Cost |
 |---|---|---|---|
-| `/ask <q>` | Quick answer | Groq/Cerebras free | ₹0 |
+| `/ask <q>` | Quick answer | Groq free tier | ₹0 |
 | `/think <q>` | Harder question | DeepSeek | ~₹0.02 |
 | `/local <q>` | Private answer | Your Mac only | ₹0 |
 | `/rank <folder>` | Score photos/videos | Your Mac (CLIP) | ₹0 |
@@ -433,8 +456,8 @@ curl -s "https://api.telegram.org/bot$TOKEN/deleteWebhook"
 | Anyone finds your bot and uses your credits | The `mine()` check — only your chat ID is answered |
 | Bot token leaks | Keep it in `.env` with `chmod 600`, never in git |
 | Someone guesses your webhook URL | The secret is part of the path |
-| A message makes your Mac read `~/.ssh` | Path safety check in file 06. **Do not skip this** |
-| Runaway spending | Per-key budget in LiteLLM (file 02, step 7) |
+| A message makes your Mac read `~/.ssh` | Path safety check in file 05. **Do not skip this** |
+| Runaway spending | Per-key budget in LiteLLM (file 06, step 7) |
 
 ---
 
@@ -445,7 +468,7 @@ curl -s "https://api.telegram.org/bot$TOKEN/deleteWebhook"
 | Bot silent | Not running, or wrong chat ID | `tail /tmp/tgbot.err`; re-check chat ID |
 | "Conflict: terminated by other getUpdates" | Polling and webhook both on | Delete the webhook, or stop the polling bot |
 | Long answers cut off | Telegram limit is ~4,096 characters | Split the reply into chunks |
-| `/rank` says queued but nothing happens | Mac agent not running | See file 06 |
+| `/rank` says queued but nothing happens | Mac agent not running | See file 05 |
 | Works on wifi, not mobile data | Bot reaching LiteLLM over localhost | Fine for polling on Mac; for webhook see the Tailscale warning above |
 | Webhook returns 401 | Wrong secret in URL | Re-run `setWebhook` |
 
@@ -507,4 +530,41 @@ Rules:
 
 ---
 
-Next: [06 — Job queue and Mac agent](06-job-queue-and-mac-agent.md)
+## ⚠️ Verify with AI
+
+| # | Unverified | Why it matters |
+|---|---|---|
+| 1 | `python-telegram-bot` current API | v20+ changed handler signatures |
+| 2 | Message length and file size limits | Long replies get truncated |
+| 3 | Whether polling and webhook can coexist | They cannot — but confirm the error |
+
+Paste this into Gemini or any web-enabled AI, then update this file with what comes back.
+
+```
+RULES — follow exactly:
+- Use only the official Telegram Bot API documentation and the
+  python-telegram-bot documentation. No blogs.
+- Give the source URL and version for each answer.
+
+I am writing a single-user Telegram bot in Python that answers questions via an
+OpenAI-compatible proxy and queues jobs to a REST API.
+
+1. Current stable python-telegram-bot version, and the current official minimal
+   polling-bot example with a CommandHandler and a MessageHandler. Have the async
+   handler signatures changed recently?
+2. Current limits: maximum message length in characters; maximum file size a bot
+   can send; maximum it can receive. Recommended way to split a long reply.
+3. Confirm that polling and a webhook cannot both be active, and give the exact
+   error Telegram returns. Give the correct calls to switch between them.
+4. Official way to restrict a bot to one chat id. Is there a Telegram-side
+   setting, or is it application-level only?
+5. How to send a video file from a bot, and the official size limit for that.
+6. Does the Bot API support anything like typing indicators for long operations?
+   Give the current method name.
+
+Output as: | # | Answer | Official example | Source URL | Version |
+```
+
+---
+
+Next: [06 — Job queue and Mac agent](05-mac-agent.md)

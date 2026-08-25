@@ -39,10 +39,12 @@ Homebrew is the package installer for macOS.
 brew --version
 ```
 
-If not found, install from https://brew.sh — follow the one command on their
+If not found, install from [https://brew.sh](https://brew.sh) — follow the one command on their
 homepage, then close and reopen Terminal.
 
 ---
+
+
 
 ## Step 2 — Install Ollama
 
@@ -69,6 +71,8 @@ You should get back `{"models":[]}` — empty, because you have no models yet.
 
 ---
 
+
+
 ## Step 3 — Download your models
 
 Download in this order. Start with the small ones so you get something working
@@ -84,12 +88,21 @@ ollama pull gemma3:4b
 # 3. Your general workhorse (about 5 GB)
 ollama pull qwen3:8b
 
-# 4. Embeddings — for searching your own notes and files (about 275 MB)
-ollama pull nomic-embed-text
+# 4. Embeddings — for searching your own notes and files
+ollama pull nomic-embed-text        # 0.274 GB, but only 2K context
 ```
 
-⚠️ Model tag names change. If a `pull` fails, check the exact name at
-https://ollama.com/library — the numbers stay the same, the tags sometimes move.
+✅ **Tags verified current (Aug 2026):** `qwen3:4b`, `qwen3:8b`, `qwen3:14b`,
+`gemma3:4b`, `gemma3:12b`, `nomic-embed-text` (latest = v1.5). Confirm at
+[https://ollama.com/library/qwen3/tags](https://ollama.com/library/qwen3/tags) if a pull fails.
+
+🚨 `nomic-embed-text` **has only a 2,000 token context window.** That is fine for
+short photo captions, but too small for document chunks. If you want to search
+PDFs and notes, use this instead:
+
+```bash
+ollama pull qwen3-embedding:4b      # 2.5 GB, 40K context
+```
 
 **Optional, only if you want the best local vision (7.5 GB, and it will make
 your Mac feel slower while loaded):**
@@ -105,6 +118,8 @@ ollama list
 ```
 
 ---
+
+
 
 ## Step 4 — Test that it works
 
@@ -131,6 +146,8 @@ everything else can talk to it without special code.
 
 ---
 
+
+
 ## Step 5 — Keep the model loaded in memory
 
 By default Ollama unloads a model after 5 minutes. Reloading takes 10–30
@@ -155,6 +172,8 @@ qwen3:8b). If your Mac feels short of memory, set this to `1h` instead.
 
 ---
 
+
+
 ## Step 6 — Measure your actual speed
 
 Knowing your real speed tells you which jobs are worth doing locally.
@@ -165,24 +184,32 @@ ollama run qwen3:8b --verbose "Write a 100 word paragraph about the sea."
 
 Look at `eval rate` in the output. Expect:
 
-| Model | Expected speed |
-|---|---|
-| qwen3:4b | 35–50 tokens/sec |
-| qwen3:8b | 20–30 tokens/sec |
+
+| Model      | Expected speed   |
+| ---------- | ---------------- |
+| qwen3:4b   | 35–50 tokens/sec |
+| qwen3:8b   | 20–30 tokens/sec |
 | gemma3:12b | 12–18 tokens/sec |
+
 
 If you are far below this, something else is using your memory. Close Chrome
 and heavy apps and try again.
 
 ---
 
-## Step 7 — Optional: install MLX for 20–40% more speed
 
-MLX is Apple's own machine-learning framework. It is faster than Ollama for the
-same model because it is built specifically for Apple chips.
 
-**Worth doing if:** you will run big batch jobs (describing thousands of
-photos). **Skip if:** you just want chat to work.
+## Step 7 — Optional: try MLX and measure it
+
+MLX is Apple's own machine-learning framework, built specifically for Apple chips
+and unified memory.
+
+🚨 **Correction to something I said earlier: MLX is not proven faster.** I claimed
+20–40%. Research found **no published controlled benchmark** comparing MLX and
+llama.cpp/Ollama at the same model and quantisation. Apple documents that MLX is
+*designed* for Apple Silicon, which is not the same as a measured win.
+
+**So: measure it on your own Mac before switching anything.**
 
 ```bash
 brew install python@3.12
@@ -190,18 +217,24 @@ python3.12 -m venv ~/.venvs/mlx
 source ~/.venvs/mlx/bin/activate
 pip install mlx-lm
 
-# Test it
-mlx_lm.generate --model mlx-community/Qwen3-8B-4bit \
-  --prompt "Say OK." --max-tokens 20
+# Time it, then compare against the Ollama number from step 6
+time mlx_lm.generate --model mlx-community/Qwen3-8B-4bit \
+  --prompt "Write exactly 100 words about the ocean." --max-tokens 150
 ```
 
-⚠️ Exact MLX model names live at https://huggingface.co/mlx-community — check
-there if the name above fails.
+⚠️ Exact MLX model names live at [https://huggingface.co/mlx-community](https://huggingface.co/mlx-community) — check
+there if the name above fails. Not every Ollama model has an MLX conversion.
 
-Keep Ollama as your main setup. Use MLX only inside batch scripts where speed
-matters.
+Keep Ollama as your main setup either way. Only move a batch job to MLX if your
+own measurement shows a real gain.
+
+**One place MLX clearly wins:** speech to text.
+`mlx-community/whisper-large-v3-turbo-4bit` is only **0.464 GB** and there is no
+equivalent Ollama tag.
 
 ---
+
+
 
 ## Step 8 — Install the photo-scoring tools
 
@@ -230,33 +263,43 @@ reinstall with `pip install --force-reinstall torch torchvision`.
 
 ---
 
+
+
 ## Which model for which job
 
-| Job | Model | Why |
-|---|---|---|
-| Understanding a short command like "rank my beach photos" | qwen3:4b | Fast, and this is an easy task |
-| Naming a group of photos | qwen3:4b | Short input, short output |
-| Describing a photo | gemma3:4b | Can see images, fast enough for thousands |
-| Summarising a document | qwen3:8b | Better at longer text |
-| Writing a video edit plan | ⚠️ Send to cloud (DeepSeek) | Needs better reasoning than 8B gives |
-| Writing code | ❌ Never local | 8B models are not good enough. Use GLM or Claude |
-| Searching your own notes | nomic-embed-text | Built for this |
-| Scoring photo quality | CLIP + aesthetic model | Not a language model at all |
+
+| Job                                                       | Model                       | Why                                              |
+| --------------------------------------------------------- | --------------------------- | ------------------------------------------------ |
+| Understanding a short command like "rank my beach photos" | qwen3:4b                    | Fast, and this is an easy task                   |
+| Naming a group of photos                                  | qwen3:4b                    | Short input, short output                        |
+| Describing a photo                                        | gemma3:4b                   | Can see images, fast enough for thousands        |
+| Summarising a document                                    | qwen3:8b                    | Better at longer text                            |
+| Writing a video edit plan                                 | ⚠️ Send to cloud (DeepSeek) | Needs better reasoning than 8B gives             |
+| Writing code                                              | ❌ Never local               | 8B models are not good enough. Use GLM or Claude |
+| Searching your own notes                                  | nomic-embed-text            | Built for this                                   |
+| Scoring photo quality                                     | CLIP + aesthetic model      | Not a language model at all                      |
+
 
 ---
+
+
 
 ## Troubleshooting
 
-| Problem | Cause | Fix |
-|---|---|---|
-| `connection refused` on port 11434 | Ollama not running | `brew services restart ollama` |
-| Very slow, Mac feels frozen | Model bigger than free memory, swapping to disk | Use a smaller model. Check with `vm_stat` |
-| Model reloads on every request | Keep-alive not set | Redo step 5 |
-| `MPS available: False` | CPU-only torch | `pip install --force-reinstall torch torchvision` |
-| Runs fine on power, slow on battery | macOS throttles on battery | Plug in for batch jobs |
-| Fans loud during long jobs | Normal | Plug in, use `caffeinate -s` so it doesn't sleep mid-job |
+
+| Problem                             | Cause                                           | Fix                                                      |
+| ----------------------------------- | ----------------------------------------------- | -------------------------------------------------------- |
+| `connection refused` on port 11434  | Ollama not running                              | `brew services restart ollama`                           |
+| Very slow, Mac feels frozen         | Model bigger than free memory, swapping to disk | Use a smaller model. Check with `vm_stat`                |
+| Model reloads on every request      | Keep-alive not set                              | Redo step 5                                              |
+| `MPS available: False`              | CPU-only torch                                  | `pip install --force-reinstall torch torchvision`        |
+| Runs fine on power, slow on battery | macOS throttles on battery                      | Plug in for batch jobs                                   |
+| Fans loud during long jobs          | Normal                                          | Plug in, use `caffeinate -s` so it doesn't sleep mid-job |
+
 
 ---
+
+
 
 ## Prompt for AI
 
@@ -290,13 +333,15 @@ Rules:
 
 ---
 
+
+
 ## Check you are done
 
-- [ ] `ollama list` shows qwen3:4b, gemma3:4b, qwen3:8b, nomic-embed-text
-- [ ] The `curl` test in step 4 returns JSON
-- [ ] Speed matches the table in step 6
-- [ ] `MPS available: True`
-- [ ] `ffmpeg -version` works
+- [x] `ollama list` shows qwen3:4b, gemma3:4b, qwen3:8b, nomic-embed-text
+- [x] The `curl` test in step 4 returns JSON
+- [x] Speed matches the table in step 6
+- [x] `MPS available: True`
+- [x] `ffmpeg -version` works
 
 ---
 

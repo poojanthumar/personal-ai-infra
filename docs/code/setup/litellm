@@ -1,0 +1,6 @@
+
+
+
+curl -s -X POST http://localhost:4000/key/generate \
+    -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+    -d "{\"models\":[\"tier0-local\",\"tier1-free\",\"tier2-cheap\"],\"max_budget\":2,\"key_alias\":\"openclaw\",\"budget_duration\":\"1mo\"}"

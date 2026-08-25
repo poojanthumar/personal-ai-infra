@@ -1,5 +1,10 @@
 # 10 — Photos and Albums
 
+
+> ⚠️ **Anything marked ⚠️ in this file is unverified.** All of it is answered
+> by the prompt in [⚠️ Verify with AI](#-verify-with-ai) at the bottom — paste it
+> into Gemini or any web-enabled AI and update this file with the result.
+
 **Goal:** group your photos into meaningful albums automatically — by trip, by
 event, by who is in them — and give each album a sensible name.
 
@@ -7,7 +12,7 @@ event, by who is in them — and give each album a sensible name.
 
 **Cost:** ₹0 for grouping. About ₹0.10 for naming 50 albums.
 
-**Requires:** file 07, so photos already have scores and captions.
+**Requires:** file 03, so photos already have scores and captions.
 
 ---
 
@@ -82,13 +87,22 @@ that is significant.
 docker stats --no-stream
 ```
 
-If it is using too much, disable the heavy ML features you do not need in
-**Administration → Settings → Machine Learning**. Keep **CLIP search** and
-**face detection**; you can turn off duplicate detection since file 07 already
-does that better for your purposes.
+⚠️ Immich's official minimum RAM figure could not be confirmed from their
+requirements page. Assume the ML container is the expensive part and measure.
 
-**If it is too heavy for your Mac,** run Immich on the Oracle free VM instead
-(24 GB RAM) and keep the originals on your Mac, syncing selectively.
+**To cut memory use, in order of effectiveness:**
+
+1. **Don't start the ML container at all.** Comment out the
+   `immich-machine-learning` service in `docker-compose.yml`. You lose Smart
+   Search and Facial Recognition — but file 03 already does better scoring and
+   deduplication for your purposes, so this is often the right trade.
+2. Disable individual ML features in **Administration → Settings → Machine
+   Learning**. The ones with real cost are **Smart Search** and **Facial
+   Recognition**.
+
+**If it is still too heavy for your Mac,** run Immich on the Oracle free box
+instead (⚠️ 2 OCPU / 12 GB on the current free tier) and keep originals on your
+Mac using an external library over a mounted path.
 
 ## Step 3 — Import your photos
 
@@ -117,8 +131,8 @@ H    = {"x-api-key": KEY}
 
 
 def search_by_text(query, limit=50):
-    """Immich's built-in CLIP search. Ask in plain words."""
-    r = requests.post(f"{BASE}/search/smart",
+    """Immich's search. Ask in plain words."""
+    r = requests.post(f"{BASE}/search/metadata",
                       headers=H, json={"query": query, "size": limit},
                       timeout=60)
     r.raise_for_status()
@@ -132,17 +146,23 @@ def list_people():
     return r.json()
 
 
-def create_album(name, asset_ids):
-    """Make an album from a list of Immich asset IDs."""
-    r = requests.post(f"{BASE}/albums", headers=H,
-                      json={"albumName": name, "assetIds": asset_ids},
-                      timeout=60)
+def create_album(name, asset_ids=None, description=""):
+    """Make an album. asset_ids may be empty and filled in later."""
+    body = {"albumName": name, "description": description}
+    if asset_ids:
+        body["assetIds"] = asset_ids
+    r = requests.post(f"{BASE}/albums", headers=H, json=body, timeout=60)
     r.raise_for_status()
     return r.json()
 ```
 
-⚠️ Immich API paths change between versions. Check
-`http://localhost:2283/api/api-docs` for the live list on your install.
+✅ **Verified (Aug 2026):** authentication is the `x-api-key` header; search is
+`POST /api/search/metadata`; album creation is `POST /api/albums` with
+`albumName`.
+
+⚠️ Immich API paths are version-sensitive. Confirm required fields against the
+live docs on your own install at `http://YOUR_SERVER/api`, and the OpenAPI spec at
+https://api.immich.app.
 
 ---
 
@@ -486,11 +506,11 @@ ORDER BY photos_with_faces DESC LIMIT 15;"
 ## How this feeds the reels pipeline
 
 Once you have named events, `/reel goa trip` works properly: the manifest
-builder in file 08 matches your words against **event names** as well as photo
+builder in file 09 matches your words against **event names** as well as photo
 captions, so it picks clips from the right trip instead of guessing from
 captions alone.
 
-Add this to `build_manifest` in file 08:
+Add this to `build_manifest` in file 09:
 
 ```python
 # Try matching an event name first — much more accurate than caption matching
@@ -518,7 +538,7 @@ if ev:
 | Hundreds of tiny events | Gaps too small | Raise `TIME_GAP_HOURS`, raise `MIN_PHOTOS_PER_EVENT` |
 | Immich eats all your memory | ML containers are heavy | Disable unneeded ML features, or move Immich to the Oracle VM |
 | osxphotos permission denied | Photos access not granted | System Settings → Privacy & Security → Photos |
-| Album names are generic | Captions are weak | Improve the captioning prompt in file 07, step 7 |
+| Album names are generic | Captions are weak | Improve the captioning prompt in file 03, step 7 |
 | Immich API returns 404 | Version changed the path | Check `/api/api-docs` on your install |
 
 ---
@@ -584,4 +604,57 @@ Rules:
 
 ---
 
-Next: [11 — Dashboard](11-dashboard.md)
+## ⚠️ Verify with AI
+
+| # | Unverified | Why it matters |
+|---|---|---|
+| 1 | Google Photos API current state | ✅ Confirmed closed — recheck yearly |
+| 2 | Immich minimum RAM | Not published; decides Mac vs Oracle |
+| 3 | Immich API paths on your version | Version-sensitive |
+| 4 | osxphotos current API and Photos permissions | macOS tightens these often |
+
+Paste this into Gemini or any web-enabled AI, then update this file with what comes back.
+
+```
+RULES — follow exactly:
+- Use only official developer documentation and project repositories: Google's
+  Photos developer site, the immich-app/immich repository and docs.immich.app, and
+  the RhetTbull/osxphotos repository. No blogs.
+- Give the source URL and date for every answer.
+- If something is not documented, write NOT DOCUMENTED.
+
+1. GOOGLE PHOTOS LIBRARY API — current state:
+   a. Can a third-party app read a user's entire library today, with consent?
+   b. Which OAuth scopes still exist, and which were removed or restricted, with
+      dates?
+   c. Has anything changed since 31 March 2025? Check their updates page.
+   d. Is the Picker API usable for repeated or automated access, or only one-off
+      user selection?
+2. IMMICH:
+   a. Current official minimum RAM for server plus machine learning, separately.
+   b. Which machine-learning features can be disabled, with the exact setting
+      names, and what breaks when you do.
+   c. Consequences of not starting the immich-machine-learning container at all.
+   d. Current API endpoints and request bodies for: semantic/smart text search,
+      creating an album, adding assets to an album, listing recognised people.
+      Give the required headers.
+   e. How to configure an external library that reads a mounted folder in place
+      without copying. Give the exact compose volume and the UI steps.
+   f. Does it run on ARM Linux? Any ARM-specific notes?
+3. OSXPHOTOS:
+   a. Current recommended way to read the Apple Photos library from Python. Paste
+      the official example for iterating photos with persons, place, date,
+      favourite and labels.
+   b. Which macOS privacy permission is needed, and where the user grants it.
+   c. Does it expose Apple's own internal curation or aesthetic scores? If yes,
+      the field names.
+   d. Any macOS version limits.
+
+Output as: | # | Answer | Source URL | Date |
+Then one paragraph: the best officially supported way today to automatically
+organise an existing photo library into albums.
+```
+
+---
+
+Next: [11 — Dashboard](12-dashboard.md)

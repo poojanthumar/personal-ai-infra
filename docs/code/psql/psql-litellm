@@ -1,0 +1,3 @@
+psql litellm
+
+sudo systemctl restart postgresql

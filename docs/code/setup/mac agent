@@ -1,0 +1,2 @@
+tail -f /tmp/aihub-agent.log
+

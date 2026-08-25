@@ -1,5 +1,10 @@
 # 11 — Dashboard
 
+
+> ⚠️ **Anything marked ⚠️ in this file is unverified.** All of it is answered
+> by the prompt in [⚠️ Verify with AI](#-verify-with-ai) at the bottom — paste it
+> into Gemini or any web-enabled AI and update this file with the result.
+
 **Goal:** always be able to see how many requests you have made, how much money
 you have spent, how much free quota is left, and what jobs ran.
 
@@ -17,7 +22,7 @@ LiteLLM knows about.
 | | What it is | Who tracks it |
 |---|---|---|
 | **Spending against your budget** | Paid APIs are metered. There is no quota — only the rupee ceiling *you* chose | ✅ LiteLLM does this already |
-| **Free-tier quota** | Groq, Gemini and Cerebras have hard caps: requests per minute, requests per day, tokens per day | ❌ **You must count these yourself** |
+| **Free-tier quota** | Groq and Gemini have hard caps — but ⚠️ **neither publishes them**; they are account-specific | ❌ **You must count these yourself** |
 
 Both need to be on the dashboard. If you only show spending, you will get
 surprise "429 too many requests" errors from the free tiers while the money
@@ -62,12 +67,30 @@ GROUP BY 1, 2
 ORDER BY 1;
 ```
 
-⚠️ LiteLLM's table and column names have changed between versions. Check yours:
+⚠️ 🚨 **The spend-log schema is NOT a stable public contract.** LiteLLM's own docs
+say column names change between releases and SQL should be written against the
+schema shipped with your exact deployed version. Get yours before writing any
+query:
+
+```bash
+# Find your version
+litellm --version
+
+# Pull the exact table definition for that tag
+curl -sL https://raw.githubusercontent.com/BerriAI/litellm/v1.86.2/schema.prisma \
+  | sed -n '/model LiteLLM_SpendLogs/,/^}/p'
+```
+
+Substitute your own version tag. Then confirm against your live database:
 
 ```bash
 psql litellm -c "\dt"
 psql litellm -c '\d "LiteLLM_SpendLogs"'
 ```
+
+**Every SQL query in this file is written against `LiteLLM_SpendLogs` with
+columns `startTime`, `model`, `spend`, and `total_tokens`.** If your version
+names them differently, adjust — the queries are the pattern, not gospel.
 
 ---
 
@@ -86,8 +109,13 @@ requests.post(f"{LITELLM}/chat/completions",
     })
 ```
 
-⚠️ Verify the metadata key name against current LiteLLM docs. If tags are
-awkward in your version, the reliable fallback is the standard OpenAI `user`
+✅ **Verified against v1.86.2 docs:** `metadata` is documented as an object for
+arbitrary request metadata, and `tags` inside it is the documented field for
+spend attribution. There is a dedicated docs page at
+`docs.litellm.ai/docs/proxy/tag_tracking` — read it, because it also explains how
+to query tags back out.
+
+If tags behave oddly on your version, the fallback is the standard OpenAI `user`
 field, which LiteLLM logs regardless:
 
 ```python
@@ -98,11 +126,11 @@ Tags used across these files:
 
 | Tag | Where from |
 |---|---|
-| `source:telegram` | file 05 |
-| `job:caption_batch` | file 07 |
-| `job:reel_edl` | file 08 |
-| `job:music_playlist` | file 09 |
+| `source:telegram` | appendix A1 |
+| `job:caption_batch` | file 03 |
+| `job:reel_edl` | file 09 |
 | `job:name_events` | file 10 |
+| `job:research` | file 11 |
 
 ---
 
@@ -114,7 +142,7 @@ psql litellm <<'SQL'
 -- Every job the Mac agent ran, whether or not a model was involved
 CREATE TABLE IF NOT EXISTS job_runs (
   id           bigserial PRIMARY KEY,
-  job_type     text NOT NULL,     -- rank_media, reel_render, music_playlist
+  job_type     text NOT NULL,     -- rank_media, reel_render, group_events
   status       text NOT NULL,     -- ok | failed | skipped
   items        int  DEFAULT 0,    -- files processed
   started_at   timestamptz NOT NULL,
@@ -142,13 +170,16 @@ CREATE TABLE IF NOT EXISTS quota_limits (
   note            text
 );
 
--- ⚠️ These numbers are approximate. Check each provider's own docs and update.
+-- 🚨 Leave these NULL until you read YOUR OWN numbers from each console.
+-- Research confirmed Groq and Gemini do NOT publish free-tier limits — they are
+-- account-specific. A guessed cap gives you a dashboard that lies.
 INSERT INTO quota_limits (provider, daily_requests, daily_tokens, note) VALUES
-  ('groq',     14000,  500000, 'approx; token cap is the real limit'),
-  ('cerebras',  1000, 1000000, 'approx'),
-  ('gemini',    1500,    NULL, 'approx; Flash tier. FREE TIER MAY TRAIN ON DATA'),
-  ('openrouter', 1000,   NULL, 'approx; higher after one-time credit')
+  ('groq',       NULL, NULL, 'NOT PUBLISHED - read from console.groq.com'),
+  ('gemini',     NULL, NULL, 'NOT PUBLISHED - account-specific. FREE TIER TRAINS ON YOUR DATA'),
+  ('openrouter', 1000, NULL, 'verified: 50/day, 1000/day after a one-time $10 credit')
 ON CONFLICT (provider) DO NOTHING;
+-- Cerebras deliberately absent: no longer a standing free tier (now $5 credits,
+-- 30-day expiry), so there is no daily cap to track.
 
 SQL
 ```
@@ -157,7 +188,7 @@ SQL
 
 ## Step 4 — Have the Mac agent log its jobs
 
-Add to `~/Documents/Code/aihub/agent.py` from file 06:
+Add to `~/Documents/Code/aihub/agent.py` from file 05:
 
 ```python
 import psycopg2   # pip install psycopg2-binary
@@ -424,7 +455,7 @@ Reach it from your phone over Tailscale at `http://100.x.y.z:3000`.
 
 ## Step 10 — The version you will actually check daily
 
-Replace the placeholder handlers in file 05:
+Replace the placeholder handlers in appendix A1:
 
 ```python
 import psycopg2
@@ -532,7 +563,7 @@ TODAY
   jobs       4
     rank_media       2 runs, 1240 items
     reel_render      1 runs, 0 items
-    music_playlist   1 runs, 42 items
+    group_events     1 runs, 94 items
   failures   0
 
 MONTH
@@ -619,4 +650,55 @@ Rules:
 
 ---
 
-Next: [12 — Web crawling](12-web-crawling.md)
+## ⚠️ Verify with AI
+
+| # | Unverified | Why it matters |
+|---|---|---|
+| 1 | LiteLLM spend-log columns for your version | 🚨 Every SQL query here depends on them |
+| 2 | Your own Groq and Gemini free-tier caps | The quota meters are meaningless without them |
+| 3 | Whether `metadata.tags` is queryable in SQL | Decides how per-job-type counting works |
+| 4 | Grafana Postgres connection from Docker | `host.docker.internal` is Mac-only
+
+Paste this into Gemini or any web-enabled AI, then update this file with what comes back.
+
+```
+RULES — follow exactly:
+- Use ONLY docs.litellm.ai and the BerriAI/litellm repository, each AI provider's
+  own rate-limit documentation, and the official Grafana documentation. No blogs.
+- Give the source URL and version for every answer.
+- If something is not documented, write NOT DOCUMENTED.
+
+I am building a dashboard over LiteLLM's PostgreSQL logs plus two tables of my
+own, showing money spent this month, requests per tier, jobs run, and how much
+free-tier quota is left.
+
+1. For the current stable LiteLLM: the exact spend-log table name and every
+   column with its type. Give the command to extract it from schema.prisma for a
+   specific version tag.
+2. Is there a stable documented view or API endpoint for spend reporting that I
+   should use INSTEAD of querying tables directly? If yes, give the endpoint and
+   response shape — I would rather not depend on an internal schema.
+3. When I send `metadata: {"tags": [...]}` with a request, where does it end up in
+   PostgreSQL? Which column, and what shape? Give a working SQL example that
+   counts requests grouped by tag. Read the tag_tracking docs page.
+4. Are per-key and per-tag spend figures available through the API rather than
+   raw SQL? Give the endpoints.
+5. GROQ: are free-tier requests-per-minute, requests-per-day or tokens-per-day
+   limits published on any official page, or only visible in the console? If
+   published, give them per model. Do response headers report remaining quota? If
+   so, which headers?
+6. GEMINI API free tier: same questions. Which headers report remaining quota?
+7. Confirm again, with the exact quote and URL: does the Gemini FREE tier use
+   request data to improve Google products, and does the PAID tier not?
+8. Grafana in Docker connecting to PostgreSQL on the host: the officially
+   recommended host address on Linux (host.docker.internal does not work there).
+   Give the recommended approach.
+
+Output as: | # | Answer | Source URL | Version |
+Then a section: "SQL I should change", listing any query in my plan that would
+break on the current schema.
+```
+
+---
+
+Next: [12 — Web crawling](11-web-research.md)

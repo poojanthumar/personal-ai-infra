@@ -1,5 +1,34 @@
 # 09 — Apple Music Automation
 
+> ## ⚠️ OUT OF SCOPE
+>
+> **Music automation has been dropped from the plan.** This file is kept for
+> reference only — it is not part of the build order in
+> [README](README.md) or [16 — Use case playbooks](13-request-flows.md).
+>
+> **Why it was dropped:** the metadata Apple exposes has no danceability, tempo,
+> or energy field, and Spotify closed the equivalent API to new apps in Nov 2024.
+> So "bollywood dance songs" cannot be answered from your library data — it needs
+> a one-time classification pass to build your own tags first. That is a whole
+> sub-project, and it was cut.
+>
+> **What still holds if you come back to it:**
+> - ✅ Skip the Apple Developer Program (~₹8,700/yr). AppleScript does the same free
+> - ✅ AppleScript control of Music.app still works, no deprecation notice
+> - ⚠️ The `download` command is UNCLEAR — test it yourself
+> - ❌ You cannot extract audio files. Copy-protected
+> - ❌ You cannot use Apple Music tracks in exported reels
+> - ⚠️ Do a full library export weekly (play counts drift), incremental nightly
+>
+> The job-queue pattern here is still a good worked example of a Route C use case.
+
+
+> ⚠️ **Anything marked ⚠️ in this file is unverified.** All of it is answered
+> by the prompt in [⚠️ Verify with AI](#-verify-with-ai) at the bottom — paste it
+> into Gemini or any web-enabled AI and update this file with the result.
+
+---
+
 **Goal:** automatically build and refresh Apple Music playlists that match your
 taste, and mark tracks for offline listening.
 
@@ -41,7 +70,7 @@ plain audio file out, and you should not try.
 **What this means practically:**
 - ✅ Building playlists — works perfectly
 - ✅ Marking things for offline listening — works
-- ❌ Using Apple Music tracks in your reels (file 08) — impossible. Use music
+- ❌ Using Apple Music tracks in your reels (file 09) — impossible. Use music
   you own instead
 
 ---
@@ -525,7 +554,7 @@ background. You still cannot extract the files.
 
 ## Step 8 — Run it weekly
 
-Add to the Worker's cron in file 03:
+Add to the Worker's cron in file 04:
 
 ```toml
 [triggers]
@@ -558,7 +587,7 @@ Then every Monday your playlists refresh themselves.
 | Add discovered tracks to my library automatically | ⚠️ Partly | AppleScript can search the catalogue, but reliably matching a name to the right track is fiddly. Semi-manual is more dependable |
 | Mark playlists for offline listening | ✅ | Step 7 |
 | Get plain audio files out of Apple Music | ❌ | Copy-protected. Not possible, do not try |
-| Use Apple Music tracks in my reels | ❌ | Same reason. Use music you own (file 08) |
+| Use Apple Music tracks in my reels | ❌ | Same reason. Use music you own (file 09) |
 | Run any of this without a Mac | ❌ | AppleScript is macOS only. That is the trade-off for avoiding the ₹8,900/year API |
 
 ---
@@ -633,4 +662,48 @@ Rules:
 
 ---
 
-Next: [10 — Photos and albums](10-photos-albums.md)
+## ⚠️ Verify with AI
+
+This file is out of scope, so nothing here is load-bearing. **Run the prompt only
+if you decide to revive music automation.**
+
+| # | Unverified | Why it matters |
+|---|---|---|
+| 1 | Whether any audio-feature API exists again | The whole blocker |
+| 2 | AppleScript `download` behaviour | UNCLEAR in two research passes |
+| 3 | Apple Developer Program price in INR | Only if you want the official API |
+
+Paste this into Gemini or any web-enabled AI, then update this file with what comes back.
+
+```
+RULES — follow exactly:
+- Use only official developer documentation from Apple, Spotify, Last.fm,
+  ListenBrainz and MusicBrainz. No blogs.
+- Give the source URL and date for every answer.
+- If something is not documented, write NOT DOCUMENTED or UNCLEAR.
+
+1. Is there ANY API today, from any provider, that gives audio features such as
+   danceability, tempo, energy or valence for a named track, available to a new
+   personal developer account? Check Spotify, Apple, Deezer, AcousticBrainz,
+   MusicBrainz and ListenBrainz. For each: available yes/no, and the date access
+   changed if it closed.
+2. Apple Music / MusicKit: current Apple Developer Program price in INR if Apple
+   lists one. Is paid membership required for personal, non-distributed use?
+3. AppleScript and the Music app: does the `download` command still mark Apple
+   Music library tracks for offline playback on the current macOS? Test guidance
+   if it is not documented. Any deprecation notices for Music scripting?
+4. Can AppleScript reliably search the Apple Music catalogue and add a specific
+   track to the library? Give an official example or say NOT DOCUMENTED.
+5. Last.fm: current documented rate limit, the stored-data cap, and whether
+   track.getTopTags and artist.getTopTags are still available.
+6. ListenBrainz: how rate limits are communicated, and whether recording-level
+   tags or moods are available.
+
+Output as: | # | Answer | Source URL | Date |
+Then one line: is automated mood-based playlist building from library metadata
+feasible today without a manual classification pass?
+```
+
+---
+
+Next: [10 — Photos and albums](10-albums.md)

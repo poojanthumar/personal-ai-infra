@@ -1,5 +1,9 @@
 # 01 — Local AI Setup (your Mac)
 
+> ⚠️ **Anything marked ⚠️ in this file is unverified.** All of it is answered
+> by the prompt in [⚠️ Verify with AI](#-verify-with-ai) at the bottom — paste it
+> into Gemini or any web-enabled AI and update this file with the result.
+
 **Goal:** run AI models on your MacBook so most work costs ₹0.
 
 **Time:** about 1 hour, mostly waiting for downloads.
@@ -30,6 +34,8 @@ Terminal instead.
 
 ---
 
+
+
 ## Step 1 — Install Homebrew (if you don't have it)
 
 Homebrew is the package installer for macOS.
@@ -39,10 +45,12 @@ Homebrew is the package installer for macOS.
 brew --version
 ```
 
-If not found, install from https://brew.sh — follow the one command on their
+If not found, install from [https://brew.sh](https://brew.sh) — follow the one command on their
 homepage, then close and reopen Terminal.
 
 ---
+
+
 
 ## Step 2 — Install Ollama
 
@@ -69,6 +77,8 @@ You should get back `{"models":[]}` — empty, because you have no models yet.
 
 ---
 
+
+
 ## Step 3 — Download your models
 
 Download in this order. Start with the small ones so you get something working
@@ -90,9 +100,9 @@ ollama pull nomic-embed-text        # 0.274 GB, but only 2K context
 
 ✅ **Tags verified current (Aug 2026):** `qwen3:4b`, `qwen3:8b`, `qwen3:14b`,
 `gemma3:4b`, `gemma3:12b`, `nomic-embed-text` (latest = v1.5). Confirm at
-https://ollama.com/library/qwen3/tags if a pull fails.
+[https://ollama.com/library/qwen3/tags](https://ollama.com/library/qwen3/tags) if a pull fails.
 
-🚨 **`nomic-embed-text` has only a 2,000 token context window.** That is fine for
+🚨 `nomic-embed-text` **has only a 2,000 token context window.** That is fine for
 short photo captions, but too small for document chunks. If you want to search
 PDFs and notes, use this instead:
 
@@ -114,6 +124,8 @@ ollama list
 ```
 
 ---
+
+
 
 ## Step 4 — Test that it works
 
@@ -140,6 +152,8 @@ everything else can talk to it without special code.
 
 ---
 
+
+
 ## Step 5 — Keep the model loaded in memory
 
 By default Ollama unloads a model after 5 minutes. Reloading takes 10–30
@@ -164,6 +178,8 @@ qwen3:8b). If your Mac feels short of memory, set this to `1h` instead.
 
 ---
 
+
+
 ## Step 6 — Measure your actual speed
 
 Knowing your real speed tells you which jobs are worth doing locally.
@@ -174,16 +190,20 @@ ollama run qwen3:8b --verbose "Write a 100 word paragraph about the sea."
 
 Look at `eval rate` in the output. Expect:
 
-| Model | Expected speed |
-|---|---|
-| qwen3:4b | 35–50 tokens/sec |
-| qwen3:8b | 20–30 tokens/sec |
+
+| Model      | Expected speed   |
+| ---------- | ---------------- |
+| qwen3:4b   | 35–50 tokens/sec |
+| qwen3:8b   | 20–30 tokens/sec |
 | gemma3:12b | 12–18 tokens/sec |
+
 
 If you are far below this, something else is using your memory. Close Chrome
 and heavy apps and try again.
 
 ---
+
+
 
 ## Step 7 — Optional: try MLX and measure it
 
@@ -208,7 +228,7 @@ time mlx_lm.generate --model mlx-community/Qwen3-8B-4bit \
   --prompt "Write exactly 100 words about the ocean." --max-tokens 150
 ```
 
-⚠️ Exact MLX model names live at https://huggingface.co/mlx-community — check
+⚠️ Exact MLX model names live at [https://huggingface.co/mlx-community](https://huggingface.co/mlx-community) — check
 there if the name above fails. Not every Ollama model has an MLX conversion.
 
 Keep Ollama as your main setup either way. Only move a batch job to MLX if your
@@ -220,10 +240,12 @@ equivalent Ollama tag.
 
 ---
 
+
+
 ## Step 8 — Install the photo-scoring tools
 
 These are **not** language models. They are small vision models that score
-images. This is what makes your photo ranker free. Full details in file 07.
+images. This is what makes your photo ranker free. Full details in file 03.
 
 ```bash
 brew install ffmpeg exiftool
@@ -247,33 +269,43 @@ reinstall with `pip install --force-reinstall torch torchvision`.
 
 ---
 
+
+
 ## Which model for which job
 
-| Job | Model | Why |
-|---|---|---|
-| Understanding a short command like "rank my beach photos" | qwen3:4b | Fast, and this is an easy task |
-| Naming a group of photos | qwen3:4b | Short input, short output |
-| Describing a photo | gemma3:4b | Can see images, fast enough for thousands |
-| Summarising a document | qwen3:8b | Better at longer text |
-| Writing a video edit plan | ⚠️ Send to cloud (DeepSeek) | Needs better reasoning than 8B gives |
-| Writing code | ❌ Never local | 8B models are not good enough. Use GLM or Claude |
-| Searching your own notes | nomic-embed-text | Built for this |
-| Scoring photo quality | CLIP + aesthetic model | Not a language model at all |
+
+| Job                                                       | Model                       | Why                                              |
+| --------------------------------------------------------- | --------------------------- | ------------------------------------------------ |
+| Understanding a short command like "rank my beach photos" | qwen3:4b                    | Fast, and this is an easy task                   |
+| Naming a group of photos                                  | qwen3:4b                    | Short input, short output                        |
+| Describing a photo                                        | gemma3:4b                   | Can see images, fast enough for thousands        |
+| Summarising a document                                    | qwen3:8b                    | Better at longer text                            |
+| Writing a video edit plan                                 | ⚠️ Send to cloud (DeepSeek) | Needs better reasoning than 8B gives             |
+| Writing code                                              | ❌ Never local               | 8B models are not good enough. Use GLM or Claude |
+| Searching your own notes                                  | nomic-embed-text            | Built for this                                   |
+| Scoring photo quality                                     | CLIP + aesthetic model      | Not a language model at all                      |
+
 
 ---
+
+
 
 ## Troubleshooting
 
-| Problem | Cause | Fix |
-|---|---|---|
-| `connection refused` on port 11434 | Ollama not running | `brew services restart ollama` |
-| Very slow, Mac feels frozen | Model bigger than free memory, swapping to disk | Use a smaller model. Check with `vm_stat` |
-| Model reloads on every request | Keep-alive not set | Redo step 5 |
-| `MPS available: False` | CPU-only torch | `pip install --force-reinstall torch torchvision` |
-| Runs fine on power, slow on battery | macOS throttles on battery | Plug in for batch jobs |
-| Fans loud during long jobs | Normal | Plug in, use `caffeinate -s` so it doesn't sleep mid-job |
+
+| Problem                             | Cause                                           | Fix                                                      |
+| ----------------------------------- | ----------------------------------------------- | -------------------------------------------------------- |
+| `connection refused` on port 11434  | Ollama not running                              | `brew services restart ollama`                           |
+| Very slow, Mac feels frozen         | Model bigger than free memory, swapping to disk | Use a smaller model. Check with `vm_stat`                |
+| Model reloads on every request      | Keep-alive not set                              | Redo step 5                                              |
+| `MPS available: False`              | CPU-only torch                                  | `pip install --force-reinstall torch torchvision`        |
+| Runs fine on power, slow on battery | macOS throttles on battery                      | Plug in for batch jobs                                   |
+| Fans loud during long jobs          | Normal                                          | Plug in, use `caffeinate -s` so it doesn't sleep mid-job |
+
 
 ---
+
+
 
 ## Prompt for AI
 
@@ -307,6 +339,8 @@ Rules:
 
 ---
 
+
+
 ## Check you are done
 
 - [ ] `ollama list` shows qwen3:4b, gemma3:4b, qwen3:8b, nomic-embed-text
@@ -317,4 +351,70 @@ Rules:
 
 ---
 
-Next: [02 — LiteLLM router](02-litellm-router.md)
+
+
+## ✅ Verified 2 Aug 2026 — one good find, two disputes
+
+
+
+### 🏆 Better vision model than Gemma for photo captioning
+
+
+|              | Model          | Ollama tag      | Size       | Context | Tools? |
+| ------------ | -------------- | --------------- | ---------- | ------- | ------ |
+| **New pick** | Qwen 2.5 VL 3B | `qwen2.5-vl:3b` | **1.9 GB** | 128K    | ✅ Yes  |
+| Was          | Gemma 3 4B     | `gemma3:4b`     | ~2.6 GB    | 128K    | ❌ No   |
+
+
+Smaller, longer context, **and it supports tool calling** where Gemma doesn't.
+Worth trying for the captioning pass in [03](03-photo-ranker.md) §7:
+
+```bash
+ollama pull qwen2.5-vl:3b
+```
+
+MLX equivalent: `mlx-community/Qwen2.5-VL-3B-Instruct-4bit`
+
+### ✅ Confirmed sizes
+
+`qwen3:4b` 2.5 GB · `qwen3:8b` 5.2 GB · `qwen3:14b` 9.3 GB ·
+`nomic-embed-text` 274 MB · `qwen3-embedding:4b` ~2.5 GB.
+
+Also: `nomic-embed-text` **context is 8,192 tokens**, not 2,000 as I said. Better
+than I thought — fine for document chunks after all.
+
+### ⚠️ Two claims I don't trust
+
+
+| Claim                                                              | Why I doubt it                                                                                                                                                                                                               |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| *"*`gemma3:4b` *moved to* `gemma3n:e4b`*;* `gemma3:12b` *retired"* | **Gemma 3 and Gemma 3n are different models** — 3n is the on-device variant, not a replacement. Check [https://ollama.com/library/gemma3/tags](https://ollama.com/library/gemma3/tags) yourself before believing 12b is gone |
+| *"*`qwen3:4b` *context is 256,000"*                                | Qwen3 4B is typically 32K native, ~128K with extension. 256K looks wrong. Check the model card                                                                                                                               |
+
+
+
+
+### 🚨 Whisper — it answered the wrong question
+
+It recommended `mlx-community/whisper-tiny.en-8bit` at 40 MB. I asked for the
+smallest model that transcribes **accurately** — `tiny` is the *least* accurate
+Whisper variant.
+
+🏆 **Stay with** `whisper-large-v3-turbo` (~0.464 GB in 4-bit MLX). Forty times
+larger and still trivial, with vastly better accuracy.
+
+### ⚠️ LAION weights — three sources, three filenames
+
+
+| Source            | Repo                                              | Filename                      |
+| ----------------- | ------------------------------------------------- | ----------------------------- |
+| Research pass 1   | `christophschuhmann/improved-aesthetic-predictor` | `ava+logos-l14-linearMSE.pth` |
+| Pass 2, prompt 02 | `LAION-AI/aesthetic-predictor`                    | `sa_0_4_vit_l_14.pth`         |
+| Pass 2, prompt 03 | `LAION-AI/aesthetic-predictor`                    | `sa_0_4_vit_l_14_linear.pth`  |
+
+
+**Unresolved.** Open both repositories and look at the actual file list — it takes
+thirty seconds and settles it. Details in [03](03-photo-ranker.md).
+
+---
+

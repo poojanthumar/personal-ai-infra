@@ -1,5 +1,10 @@
 # 04 — Open WebUI
 
+
+> ⚠️ **Anything marked ⚠️ in this file is unverified.** All of it is answered
+> by the prompt in [⚠️ Verify with AI](#-verify-with-ai) at the bottom — paste it
+> into Gemini or any web-enabled AI and update this file with the result.
+
 **Goal:** a proper chat interface that works in a browser and installs on your
 phone like an app. This is where you sit down and work through something,
 upload documents, and compare models.
@@ -26,7 +31,7 @@ chunks through LiteLLM. LiteLLM never sees the file. The model never sees the
 file. They only ever see text.
 
 ⚠️ This works for **documents**. It does not work for a folder of videos — see
-file 06 and 07 for that.
+file 05 and 07 for that.
 
 ---
 
@@ -40,7 +45,7 @@ open -a Docker      # let it finish starting
 docker --version
 ```
 
-**On a VM:** already done in file 03.
+**On a VM:** already done in file 04.
 
 ---
 
@@ -59,11 +64,25 @@ docker run -d \
   -e OPENAI_API_BASE_URL=http://host.docker.internal:4000/v1 \
   -e OPENAI_API_KEY=sk-your-openwebui-key \
   -e WEBUI_AUTH=true \
+  -e ENABLE_SIGNUP=false \
+  -e RAG_EMBEDDING_ENGINE=ollama \
+  -e RAG_EMBEDDING_MODEL=nomic-embed-text \
+  -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
   ghcr.io/open-webui/open-webui:main
 ```
 
 `host.docker.internal` is the special name Docker on Mac uses to mean "the Mac
 itself". Using `localhost` here would point inside the container and fail.
+
+✅ **These variable names are verified against current Open WebUI docs (Aug
+2026).** Setting the RAG variables here means you never have to click through the
+UI for them. Two extras worth knowing:
+
+- **`ENABLE_SIGNUP=false`** closes registration. Set it **after** you create your
+  admin account — the first account to register becomes admin.
+- Plural forms exist for multiple endpoints, semicolon-separated:
+  `OPENAI_API_BASE_URLS='http://a:4000/v1;https://api.openai.com/v1'` and
+  `OPENAI_API_KEYS='sk-a;sk-b'`
 
 ### Option B — On the VM (Phase 2/3)
 
@@ -142,7 +161,7 @@ It now behaves like a real app — its own icon, full screen, no browser bars.
 This is why you don't need to build an app.
 
 ⚠️ Some browser features need HTTPS. If something misbehaves, put a Cloudflare
-Tunnel in front of it (file 03) to get a real HTTPS address.
+Tunnel in front of it (file 04) to get a real HTTPS address.
 
 ---
 
@@ -185,22 +204,39 @@ Small thing, big daily time saving.
 
 ## Step 8 — Connect MCP tools (optional, later)
 
-MCP is a standard way for AI to use tools. Open WebUI talks to tools over a
-different protocol, so you need a small translator called `mcpo`.
+MCP is a standard way for AI to use tools. Open WebUI's own project for this is
+**`mcpo`**, which translates a local (stdio) MCP server into an OpenAPI service
+Open WebUI can call.
 
-⚠️ Verify against current docs — this area changes fast.
+✅ Run it with `uvx`, which is what the official README documents:
 
 ```bash
-pip install mcpo
-
-# Example: expose a filesystem tool as an API Open WebUI can call
-mcpo --port 8001 -- npx -y @modelcontextprotocol/server-filesystem ~/Media
+uvx mcpo --host 0.0.0.0 --port 8001 --api-key change-me \
+  -- npx -y @modelcontextprotocol/server-filesystem ~/Media
 ```
 
-Then in Open WebUI: **Settings → Tools → Add** → `http://localhost:8001`.
+Then in Open WebUI: **Settings → Tools → Add** →
+`http://localhost:8001/openapi.json`
 
-**Do this last.** Telegram commands (file 05) cover most of what you want, and
-they are far simpler to debug.
+Check the exact path in mcpo's own Swagger UI — if you load servers from a config
+file, the path includes the server name.
+
+🚨 **Correction to something I said earlier: there is no `--allow-tools` flag.**
+Research confirmed mcpo has **no documented way to expose only some tools** from a
+server. That matters, because a chatty MCP server puts every tool's schema into
+every request. Your real options:
+
+| Option | How |
+|---|---|
+| 🏆 Restrict at the server | Many MCP servers take arguments limiting scope — e.g. the filesystem server only sees the folder you pass it |
+| 🏆 One mcpo per tool group | Separate instances on different ports, attached to different Open WebUI assistants |
+| Open WebUI tool permissions | Control which tools each assistant may use in the UI |
+
+Always run `uvx mcpo --help` against your installed version — the flags change.
+
+**Do this last.** Telegram commands (appendix A1) cover most of what you want and are
+far simpler to debug. And see file 14 for why you should not wrap your own
+functions in MCP at all.
 
 ---
 
@@ -296,4 +332,44 @@ Rules:
 
 ---
 
-Next: [05 — Telegram bot](05-telegram-bot.md)
+## ⚠️ Verify with AI
+
+| # | Unverified | Why it matters |
+|---|---|---|
+| 1 | Current env var names | They have been renamed before |
+| 2 | Whether it now speaks MCP directly | Would remove the need for mcpo |
+| 3 | Whether tools can be limited per model | The token-cost lever |
+| 4 | ARM Linux support | Needed if you run it on Oracle
+
+Paste this into Gemini or any web-enabled AI, then update this file with what comes back.
+
+```
+RULES — follow exactly:
+- Use only docs.openwebui.com and the open-webui GitHub repositories. No blogs.
+- State the version each answer applies to and give a source URL.
+- If something is not documented, write NOT DOCUMENTED.
+
+1. Current environment variable names for connecting to an OpenAI-compatible
+   endpoint (base URL and key), single and plural forms. List any renamed
+   variables that still work.
+2. Current variables for setting the embedding engine and model to a local Ollama
+   model, plus where that lives in the admin UI.
+3. Variable to disable new sign-ups after the first admin account.
+4. Can current Open WebUI connect to MCP servers directly — stdio or remote — or
+   is mcpo still required? If direct support exists, which version added it and
+   what is the config?
+5. mcpo: current CLI flags. Specifically, is there ANY documented way to expose
+   only a subset of tools from one MCP server? If not, say NOT DOCUMENTED and give
+   the alternatives.
+6. Can tools be enabled per model or per assistant rather than globally? Exact
+   setting. This is what controls my token cost.
+7. Does the official image support linux/arm64?
+8. Officially recommended backup procedure for its data volume, and for an
+   external PostgreSQL setup.
+
+Output as: | # | Answer | Official example | Source URL | Version |
+```
+
+---
+
+Next: [05 — Telegram bot](A1-telegram-fallback.md)

@@ -94,7 +94,7 @@ of their own file.
 
 ---
 
-### 2.1 — Speed test for local models (file 01)
+### 2.1 — Speed test for local models (file 02)
 
 ```
 Write a Python script called bench_local.py.
@@ -122,7 +122,7 @@ Rules:
 
 ---
 
-### 2.2 — Test the LiteLLM router (file 02)
+### 2.2 — Test the LiteLLM router (file 06)
 
 ```
 Write a Python script called test_litellm.py that checks a LiteLLM proxy.
@@ -158,7 +158,7 @@ Rules:
 
 ---
 
-### 2.3 — Check the job queue (file 03)
+### 2.3 — Check the job queue (file 04)
 
 ```
 Write a bash script called hub_check.sh that verifies my job queue is working.
@@ -190,7 +190,7 @@ Rules:
 
 ---
 
-### 2.4 — Open WebUI setup script (file 04)
+### 2.4 — Open WebUI setup script (appendix A2)
 
 ```
 Write a bash script called openwebui_setup.sh.
@@ -226,7 +226,7 @@ Rules:
 
 ---
 
-### 2.5 — Extra Telegram commands (file 05)
+### 2.5 — Extra Telegram commands (appendix A1)
 
 ```
 Add three new commands to an existing python-telegram-bot script.
@@ -245,11 +245,10 @@ Write these three async handler functions in the same style as the existing ones
    - Calls queue_job("fetch_and_summarise", {"url": <the url>}, chat_id)
    - Replies: "Queued job #<id> to read and summarise that page."
 
-2. cmd_music(update, ctx)
-   - Takes the text after the command as a mood, for example "focus" or "upbeat".
-   - Default the mood to "recent favourites" if nothing was given.
-   - Calls queue_job("music_playlist", {"mood": <mood>}, chat_id)
-   - Replies: "Queued job #<id> to build a '<mood>' playlist."
+2. cmd_albums(update, ctx)
+   - Takes no arguments.
+   - Calls queue_job("group_events", {}, chat_id)
+   - Replies: "Queued job #<id> to group photos into events and name them."
 
 3. cmd_transcribe(update, ctx)
    - Only works if the message is a reply to another message containing audio
@@ -270,7 +269,7 @@ Rules:
 
 ---
 
-### 2.6 — Tests for the path safety check (file 06)
+### 2.6 — Tests for the path safety check (file 05)
 
 **This is the most important prompt in the set.** The function it tests is what
 stops a chat message reading your SSH keys.
@@ -323,7 +322,7 @@ Rules:
 
 ---
 
-### 2.7 — Photo rating tool (file 07)
+### 2.7 — Photo rating tool (file 03)
 
 ```
 Write a Python script called rate_photos.py. It is a small local web page for
@@ -372,7 +371,7 @@ Rules:
 
 ---
 
-### 2.8 — Beat-snapping for reels (file 08)
+### 2.8 — Beat-snapping for reels (file 09)
 
 ```
 Write a Python function called snap_cuts_to_beats and its tests.
@@ -419,7 +418,7 @@ Rules:
 
 ---
 
-### 2.9 — Apple Music statistics (file 09)
+### 2.9 — Apple Music statistics (appendix A3)
 
 ⚠️ AppleScript is where weak models struggle most. Expect to fix the result.
 
@@ -515,7 +514,7 @@ Rules:
 
 ---
 
-### 2.11 — Free-tier quota report (file 11)
+### 2.11 — Free-tier quota report (file 12)
 
 ```
 Write a Python script called quota_report.py.
@@ -559,7 +558,7 @@ Rules:
 
 ---
 
-### 2.12 — Search result ranking (file 12)
+### 2.12 — Search result ranking (file 11)
 
 ```
 Write a Python module called url_filter.py with one function.
@@ -691,7 +690,7 @@ Here is the section:
 
 ### 3.4 — Check a price or limit that I flagged
 
-Pair this with the research tool from file 12.
+Pair this with the research tool from file 11.
 
 ```
 Find the current official price or limit for: [the thing]
@@ -722,12 +721,12 @@ Answer in this format:
 
 | Do not ask | Why | Do this instead |
 |---|---|---|
-| LiteLLM `config.yaml` | Format changes often, models produce old versions | Copy from file 02, verify at docs.litellm.ai |
+| LiteLLM `config.yaml` | Format changes often, models produce old versions | Copy from file 06, verify at docs.litellm.ai |
 | Docker Compose for Immich | Same problem, and Immich changes fast | Download their official file |
 | Grafana dashboard JSON | Huge, version-specific, unverifiable by eye | Build panels in the UI |
 | "Design my AI architecture" | Too open-ended; you get generic advice | These documents |
-| "What is the cheapest AI API" | Prices change weekly; models are out of date | Research tool (file 12) with official sources only |
-| ffmpeg commands for anything unusual | Flags are subtly wrong very often | Copy from file 08, test on one file first |
+| "What is the cheapest AI API" | Prices change weekly; models are out of date | Research tool (file 11) with official sources only |
+| ffmpeg commands for anything unusual | Flags are subtly wrong very often | Copy from file 09, test on one file first |
 | Anything touching your work code | Data goes to a third party | Your work Claude Code setup only |
 
 ---
@@ -749,4 +748,4 @@ months the ⚠️ marks will be the only part that has gone stale.
 
 ---
 
-Back to: [README](README.md) · [Decisions and costs](00-decisions-and-costs.md)
+Back to: [README](README.md) · [Decisions and costs](01-decisions-and-costs.md)

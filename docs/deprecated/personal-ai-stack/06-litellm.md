@@ -1,5 +1,10 @@
 # 02 — LiteLLM Router
 
+
+> ⚠️ **Anything marked ⚠️ in this file is unverified.** All of it is answered
+> by the prompt in [⚠️ Verify with AI](#-verify-with-ai) at the bottom — paste it
+> into Gemini or any web-enabled AI and update this file with the result.
+
 **Goal:** one address that every app talks to, which then picks the right AI
 model, keeps your spending inside a hard limit, and logs everything.
 
@@ -20,7 +25,7 @@ model, keeps your spending inside a hard limit, and logs everything.
 | Log every request for your dashboard | Think or decide anything |
 
 **LiteLLM is a post office, not an assistant.** It moves messages. Everything
-about files and folders is handled by the Mac agent (file 06).
+about files and folders is handled by the Mac agent (file 05).
 
 ---
 
@@ -160,14 +165,24 @@ router_settings:
   cooldown_time: 60       # seconds to skip a provider after it fails
 
 litellm_settings:
-  max_budget: 6           # US dollars per month. HARD STOP.
-  budget_duration: 30d
   drop_params: true       # ignore parameters a provider doesn't support
+  request_timeout: 300    # proxy-wide ceiling, seconds
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
   database_url: os.environ/DATABASE_URL
+  max_budget: 6           # US dollars. NOTE: this lives here, not litellm_settings
+  budget_duration: 1mo    # NOTE: "1mo", not "30d"
 ```
+
+✅ **Verified against LiteLLM v1.86.2 documentation (Aug 2026):** `fallbacks`
+nests under `router_settings`; `max_budget` and `budget_duration` belong in
+`general_settings` with a duration string like `1mo`; `drop_params` and
+`request_timeout` belong in `litellm_settings`.
+
+⚠️ **A caution the docs give about `max_budget`:** it is not a perfectly hard
+stop. Concurrent in-flight requests can overshoot slightly. Treat it as a
+backstop, not a guarantee — the per-key budgets in step 7 are your real control.
 
 ⚠️ Model IDs like `groq/llama-3.3-70b-versatile` and `cerebras/llama3.1-70b`
 change as providers retire models. If one returns a 404, check the provider's
@@ -273,21 +288,28 @@ Never give your master key to an app. Make a separate key for each, each with
 its own budget. This is what makes your dashboard show *which* app spent money.
 
 ```bash
-create_key () {
-  curl -s http://localhost:4000/key/generate \
+create_key () {          # $1 = which model groups, $2 = budget in USD
+  curl -s -X POST http://localhost:4000/key/generate \
     -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-    -d "{\"key_alias\":\"$1\",\"max_budget\":$2,\"budget_duration\":\"30d\"}"
+    -d "{\"models\":$1,\"max_budget\":$2,\"budget_duration\":\"1mo\"}"
   echo
 }
 
-create_key telegram   1
-create_key openwebui  2
-create_key automation 1
-create_key coding     2
+create_key '["tier0-local","tier1-free","tier2-cheap"]'  1   # telegram
+create_key '["tier0-local","tier1-free","tier2-cheap"]'  2   # openwebui
+create_key '["private-local","tier2-cheap"]'             1   # automation
+create_key '["tier3-smart","tier2-cheap"]'               2   # coding
 ```
 
-⚠️ Verify the endpoint path and field names against current docs — this API has
-changed before. Save each returned key somewhere safe; they are shown once.
+✅ **Verified against v1.86.2 docs:** the endpoint is `POST /key/generate`, and
+`models`, `max_budget`, and `budget_duration` are real fields.
+
+Note the `models` array does double duty — it scopes what each key may reach. The
+`automation` key can use `private-local` but not the free cloud tiers, so a bug
+in a batch script cannot accidentally ship your photos to Groq.
+
+⚠️ `key_alias` may also be supported for naming keys — check `/docs` on your own
+proxy. Save each returned key somewhere safe; they are shown once.
 
 ---
 
@@ -369,7 +391,7 @@ Haiku 4.5. Shorter prompts silently do not cache.
 | `private-local` answers with Ollama off | Privacy gate broken | Remove it from `fallbacks` |
 | Spending not recorded | `database_url` not set | Check step 4 |
 | Works locally, not from phone | Bound to localhost only | Add `--host 0.0.0.0`, and rely on Tailscale for security |
-| Slow first request every time | Ollama unloaded the model | Set `OLLAMA_KEEP_ALIVE=24h` (file 01, step 5) |
+| Slow first request every time | Ollama unloaded the model | Set `OLLAMA_KEEP_ALIVE=24h` (file 02, step 5) |
 
 ---
 
@@ -421,6 +443,119 @@ Rules:
 - [ ] Restarts automatically after a reboot
 - [ ] Spending appears in the LiteLLM UI at `http://localhost:4000/ui` (⚠️ verify path)
 
+
 ---
 
-Next: [03 — VM and hosting](03-vm-hosting.md)
+## ✅ Verified 2 Aug 2026
+
+Two research passes. Where they disagree, the **later/higher version wins** —
+noted below.
+
+| # | Finding | Status |
+|---|---|---|
+| 1 | Spend-log table is `LiteLLM_SpendLogs` | ✅ Both passes agree |
+| 2 | **Columns confirmed**: `request_id` (PK), `call_type`, `api_key`, `spend`, `total_tokens`, `prompt_tokens`, `completion_tokens`, `model`, `user`, `metadata` (**Json**), `startTime`, `endTime`, `user_id`, `team_id`, `end_user`, `api_base`, `custom_llm_provider` | ✅ The four my SQL uses (`startTime`, `model`, `spend`, `total_tokens`) all exist |
+| 3 | **`metadata` is a JSON column** | 🏆 So tags are queryable with Postgres JSON operators — see [12](12-dashboard.md) |
+| 4 | **`key_alias` IS supported** on `/key/generate`, along with `tpm_limit`, `rpm_limit`, `soft_budget`, `budget_id`, `permissions`, `blocked` | ✅ Was unverified. Use it to name keys |
+| 5 | **LiteLLM is an MCP gateway** — `mcp_servers` in config.yaml with `include_tools` filtering | 🏆 **Big.** See [08](08-mcp-servers.md) |
+| 6 | Prompt caching passes through to Anthropic and Gemini with no proxy config | ✅ Just send `cache_control` |
+| 7 | **Health-check driven routing exists**: `background_health_checks`, `health_check_interval`, and a `/router/cooldown` endpoint | 🏆 A cleaner way to skip local tiers when the Mac is asleep than timeouts |
+| 8 | Whether `drop_params` discards `mcp_servers` | ⚠️ **Still NOT DOCUMENTED.** Test it |
+
+### 🚨 Version conflict — resolve this yourself
+
+| Pass | Said stable was |
+|---|---|
+| First (research 5–10) | **v1.86.2** |
+| Second | v1.70.x |
+
+v1.70 < v1.86, so the second pass is **behind**. It also cited
+`claude-3-5-sonnet-20240620` — a retired model — which confirms stale training.
+
+**Run `litellm --version` and trust that.** Then check your own `schema.prisma`:
+
+```bash
+litellm --version
+git archive --remote=https://github.com/BerriAI/litellm.git v<YOUR_TAG> schema.prisma \
+  | tar -x -O | sed -n '/model LiteLLM_SpendLogs/,/^}/p'
+```
+
+### Budget key naming — also conflicting
+
+The second pass showed `max_user_budget` under `general_settings`; the first showed
+`max_budget` + `budget_duration: 1mo`. **Keep `max_budget` + `budget_duration`**
+(from the newer pass) and verify against your version's docs. They may be
+different settings — a per-user default versus a proxy-wide cap.
+
+### Worth adding: health-check routing
+
+Finding 7 is a better solution than the timeout-based failover in this file:
+
+```yaml
+general_settings:
+  background_health_checks: true
+  health_check_interval: 30
+
+router_settings:
+  cooldown_time: 60
+```
+
+⚠️ Verify these keys exist in your version. If they do, `tier0-local` gets marked
+unhealthy in the background instead of costing you an 8-second timeout on the
+first request after your Mac sleeps.
+
+---
+
+## ⚠️ Verify with AI
+
+| # | Unverified | Why it matters |
+|---|---|---|
+| 1 | Your deployed version's config schema | Format changes between releases |
+| 2 | Spend-log table and column names | 🚨 Not a stable public contract — the dashboard SQL depends on it |
+| 3 | Whether `drop_params` eats `mcp_servers` | Could silently break server-side MCP |
+| 4 | Whether `key_alias` exists | Nice for naming keys |
+| 5 | Whether LiteLLM is an MCP gateway now | Would centralise MCP config |
+
+✅ Already verified against v1.86.2: `fallbacks` under `router_settings`;
+`max_budget` and `budget_duration` in `general_settings` with `1mo`;
+`metadata.tags`; UI at `/ui`; `DATABASE_URL`.
+
+Paste this into Gemini or any web-enabled AI, then update this file with what comes back.
+
+```
+RULES — follow exactly:
+- Use ONLY docs.litellm.ai and the BerriAI/litellm GitHub repository. No blogs.
+- State the LiteLLM version every answer applies to.
+- Give the source URL for each answer.
+- If something is not documented, write NOT DOCUMENTED. Do not infer.
+
+I run LiteLLM as a proxy with a config.yaml, PostgreSQL for logging, and virtual
+keys with per-key budgets.
+
+1. What is the current stable LiteLLM version? Have any config keys been renamed
+   or deprecated in the last three releases? List them.
+2. Paste the current official example for: a model group with several providers
+   under one model_name; per-deployment timeout and num_retries; fallbacks between
+   model groups; a proxy-wide monthly budget cap.
+3. The exact table name and every column, with types, that LiteLLM uses for
+   request-level spend logs in PostgreSQL — for the current stable version. Give
+   the command to extract it from schema.prisma for an arbitrary version tag.
+4. Does `drop_params: true` discard an `mcp_servers` parameter intended for
+   Anthropic or Gemini? If not documented, say so and tell me how to test it.
+5. Does `/key/generate` accept a `key_alias` field? List every field it accepts.
+6. Read docs.litellm.ai/docs/mcp. Can LiteLLM register and serve MCP servers,
+   acting as a gateway? Which version added it? Can a client discover MCP tools
+   through LiteLLM rather than configuring them itself?
+7. Does LiteLLM support prompt caching pass-through for Anthropic and Gemini? Is
+   any config needed?
+8. Is there a documented way to make the proxy skip a deployment based on an
+   external health signal — for example, my own heartbeat table saying the Mac is
+   asleep — rather than waiting for a timeout?
+
+Output each as: number, short answer, official code example in a fenced block,
+source URL, applies-to version.
+```
+
+---
+
+Next: [03 — VM and hosting](04-oracle-box.md)

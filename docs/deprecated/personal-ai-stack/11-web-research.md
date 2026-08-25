@@ -1,5 +1,10 @@
 # 12 — Web Crawling and Search
 
+
+> ⚠️ **Anything marked ⚠️ in this file is unverified.** All of it is answered
+> by the prompt in [⚠️ Verify with AI](#-verify-with-ai) at the bottom — paste it
+> into Gemini or any web-enabled AI and update this file with the result.
+
 **Goal:** let your AI search the web and read pages, without paying for a search
 API and without hitting daily limits.
 
@@ -332,7 +337,7 @@ forms.
 npx -y @playwright/mcp@latest --help
 ```
 
-Connect it to Open WebUI through the translator from file 04, step 8:
+Connect it to Open WebUI through the translator from appendix A2, step 8:
 
 ```bash
 mcpo --port 8002 -- npx -y @playwright/mcp@latest
@@ -364,7 +369,7 @@ async def cmd_research(update, ctx):
     await update.message.reply_text(f"Queued job #{job_id}")
 ```
 
-And in the Mac agent (file 06):
+And in the Mac agent (file 05):
 
 ```python
 def h_research(payload):
@@ -458,4 +463,53 @@ Rules:
 
 ---
 
-Next: [13 — AI prompts](13-ai-prompts.md)
+## ⚠️ Verify with AI
+
+| # | Unverified | Why it matters |
+|---|---|---|
+| 1 | SearXNG settings schema | `formats: json` location matters or you get 403 |
+| 2 | Crawl4AI current API | `arun` signature has changed before |
+| 3 | Whether Crawl4AI runs on ARM Linux | Oracle is aarch64 |
+| 4 | Free search API fallback limits | Brave and Tavily allowances shift
+
+Paste this into Gemini or any web-enabled AI, then update this file with what comes back.
+
+```
+RULES — follow exactly:
+- Use only the official SearXNG documentation and repository, the Crawl4AI
+  repository and docs, and each search provider's own pricing page. No blogs.
+- Give the source URL and version for each answer.
+- If something is not documented, write NOT DOCUMENTED.
+
+I run SearXNG and Crawl4AI in Docker on an Oracle Ubuntu ARM (aarch64) VM, and
+call both from Python to feed clean text to an AI model.
+
+1. SEARXNG:
+   a. Current minimal settings.yml to enable the JSON API. Where exactly does the
+      `formats` key go? Paste the official example.
+   b. Confirm that omitting JSON from formats causes HTTP 403 on API calls.
+   c. Current recommended Docker run or compose configuration, including where
+      settings.yml must be mounted and the secret_key requirement.
+   d. Does the official image support linux/arm64?
+   e. Recommended way to disable rate limiting for single-user self-hosted use.
+2. CRAWL4AI:
+   a. Current version and the official quickstart example for fetching one page
+      and getting Markdown.
+   b. Exact current signature of the async crawl method and the result object's
+      fields — where is the Markdown, where is the page title?
+   c. Does crawl4ai-setup work on ARM Linux? Does its browser download support
+      aarch64? Any extra system packages needed on Ubuntu ARM?
+   d. Recommended way to crawl several URLs concurrently, with the official
+      example and any concurrency limit they advise.
+   e. Any built-in option to cap output length or strip boilerplate.
+3. FALLBACK SEARCH APIS — current free tier for Brave Search API and Tavily:
+   requests per month, rate limits, whether a card is required.
+4. Is there an official MCP server for web fetch or web search maintained by the
+   modelcontextprotocol organisation? Package name and transport.
+
+Output as: | # | Answer | Official example | Source URL | Version |
+```
+
+---
+
+Next: [13 — AI prompts](15-build-prompts.md)

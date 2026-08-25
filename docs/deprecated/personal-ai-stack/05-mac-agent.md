@@ -1,5 +1,9 @@
 # 06 — Job Queue and Mac Agent
 
+> ⚠️ **Anything marked ⚠️ in this file is unverified.** All of it is answered
+> by the prompt in [⚠️ Verify with AI](#-verify-with-ai) at the bottom — paste it
+> into Gemini or any web-enabled AI and update this file with the result.
+
 **This is the most important file.** It is the piece that answers "how does a
 message from my phone cause work to happen on files that are on my Mac?"
 
@@ -13,11 +17,13 @@ message from my phone cause work to happen on files that are on my Mac?"
 
 You cannot say "analyse this folder" to LiteLLM or to an AI model. Here is why:
 
-| Component | What it actually does | Can it read your files? |
-|---|---|---|
-| **The AI model** (Qwen3, Claude) | Turns text into text | ❌ **Never.** Models only receive text and images that were already put in the message |
-| **LiteLLM** | Passes a message to a model | ❌ **Never.** No filesystem, no tools, no commands |
-| **The Mac agent** | Runs actual code — lists folders, runs CLIP, calls ffmpeg | ✅ **Only this**, and only on the machine it runs on |
+
+| Component                        | What it actually does                                     | Can it read your files?                                                               |
+| -------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| **The AI model** (Qwen3, Claude) | Turns text into text                                      | ❌ **Never.** Models only receive text and images that were already put in the message |
+| **LiteLLM**                      | Passes a message to a model                               | ❌ **Never.** No filesystem, no tools, no commands                                     |
+| **The Mac agent**                | Runs actual code — lists folders, runs CLIP, calls ffmpeg | ✅ **Only this**, and only on the machine it runs on                                   |
+
 
 So the request `"rank the media in ~/Videos/Beach"` cannot be fulfilled by
 LiteLLM at all, no matter where LiteLLM is running. Something must execute code
@@ -66,6 +72,10 @@ sequenceDiagram
     V->>U: "Ranked 1,240 files. Top 10: ..."
 ```
 
+
+
+
+
 ### And a surprise: no AI model is involved in the ranking at all
 
 "Rank by how good it looks" is **CLIP plus a small scoring model**. That is a
@@ -74,48 +84,68 @@ cloud, no tokens.
 
 The AI only appears at the edges:
 
-| Step | Who does it | Cost |
-|---|---|---|
-| Understand "rank my beach photos" → `{type, path}` | Qwen3-4B locally, or plain text matching | ₹0 |
-| **Walk the folder, score 1,240 files** | **CLIP on your Mac** | **₹0** |
-| Write a one-line summary for the Telegram reply | Any cheap model | ~₹0.01 |
+
+| Step                                               | Who does it                              | Cost   |
+| -------------------------------------------------- | ---------------------------------------- | ------ |
+| Understand "rank my beach photos" → `{type, path}` | Qwen3-4B locally, or plain text matching | ₹0     |
+| **Walk the folder, score 1,240 files**             | **CLIP on your Mac**                     | **₹0** |
+| Write a one-line summary for the Telegram reply    | Any cheap model                          | ~₹0.01 |
+
 
 ---
 
+
+
 ## Why "Mac asks" and not "VM sends"
 
-| | Mac asks (pull) | VM sends (push) |
-|---|---|---|
-| Needs a public address on the Mac | ❌ No | ✅ Yes — you don't have one |
-| Survives your IP changing | ✅ Yes | ❌ Needs dynamic DNS |
-| Works behind Indian shared-IP internet | ✅ Yes | ❌ No |
-| Mac asleep at 9am | Job **waits** in the queue | Job **fails and is lost** |
-| Firewall or router changes needed | None | Port forwarding |
+
+|                                        | Mac asks (pull)            | VM sends (push)            |
+| -------------------------------------- | -------------------------- | -------------------------- |
+| Needs a public address on the Mac      | ❌ No                       | ✅ Yes — you don't have one |
+| Survives your IP changing              | ✅ Yes                      | ❌ Needs dynamic DNS        |
+| Works behind Indian shared-IP internet | ✅ Yes                      | ❌ No                       |
+| Mac asleep at 9am                      | Job **waits** in the queue | Job **fails and is lost**  |
+| Firewall or router changes needed      | None                       | Port forwarding            |
+
 
 The pull model wins on every row. That is the whole design.
 
 ---
 
+
+
 ## Step 1 — Folder layout
 
-Put everything you want reachable under **one root**. This is a safety
-boundary, not just tidiness.
+Put everything you want reachable under **explicit roots**. This is a safety
+boundary, not tidiness.
 
 ```bash
 mkdir -p ~/Media/{Photos,Videos,Music,Output}
 mkdir -p ~/Documents/Code/aihub
 ```
 
-| Folder | Holds |
-|---|---|
-| `~/Media/Photos` | Photos to score and group |
-| `~/Media/Videos` | Video clips |
-| `~/Media/Music` | Music you own, for reels |
-| `~/Media/Output` | Finished reels and reports |
 
-**Nothing outside `~/Media` will ever be reachable from a chat message.**
+| Folder           | Holds                        |
+| ---------------- | ---------------------------- |
+| `~/Media/Photos` | Photos to score and group    |
+| `~/Media/Videos` | Video clips                  |
+| `~/Media/Music`  | Music **you own**, for reels |
+| `~/Media/Output` | Finished reels and reports   |
+
+
+**You will also want** `~/Downloads`, since that is where folders like
+`Downloads/Australia/Day1` actually live. The agent takes a **list** of roots:
+
+```bash
+export MEDIA_ROOTS="$HOME/Media:$HOME/Downloads"
+```
+
+**Nothing outside those roots is reachable from a chat message.** Do not add
+`$HOME` — that would expose `~/.ssh`, your work repositories, and everything else.
 
 ---
+
+
 
 ## Step 2 — Install
 
@@ -126,6 +156,8 @@ pip install requests
 ```
 
 ---
+
+
 
 ## Step 3 — The agent
 
@@ -140,15 +172,20 @@ Asks the hub for work, does it locally, sends the result back.
 All connections go OUT from this machine. Nothing connects in.
 """
 
-import os, sys, time, json, socket, traceback
+import os, sys, time, json, socket, traceback, subprocess
 from pathlib import Path
 import requests
 
 HUB          = os.environ["HUB_URL"].rstrip("/")
 TOKEN        = os.environ["WORKER_TOKEN"]
-MEDIA_ROOT   = Path(os.environ.get("MEDIA_ROOT", "~/Media")).expanduser().resolve()
-POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "20"))
+POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "5"))
 TG_TOKEN     = os.environ.get("TELEGRAM_TOKEN", "")
+
+# A LIST of allowed roots. Everything outside them is unreachable.
+MEDIA_ROOTS = [
+    Path(p).expanduser().resolve()
+    for p in os.environ.get("MEDIA_ROOTS", "~/Media:~/Downloads").split(":")
+]
 
 HEADERS = {"x-worker-token": TOKEN}
 
@@ -161,21 +198,42 @@ def safe_path(user_path: str) -> Path:
 
     This is the most important function in the file. Without it, someone who
     can message the bot can make your Mac read anything, including ~/.ssh.
+
+    Tries each allowed root in turn. Returns the first match that exists and
+    genuinely resolves inside that root.
     """
     if not user_path or not isinstance(user_path, str):
         raise ValueError("no path given")
 
-    # Strip anything that tries to escape or use an absolute path
+    # Strip anything trying to escape or use an absolute path
     cleaned = user_path.strip().lstrip("/").replace("~", "")
-    resolved = (MEDIA_ROOT / cleaned).resolve()
 
-    # resolve() follows symlinks, so this catches link-based escapes too
-    if not resolved.is_relative_to(MEDIA_ROOT):
-        raise ValueError(f"path escapes the media root: {user_path}")
-    if not resolved.exists():
-        raise ValueError(f"folder does not exist: {user_path}")
+    for root in MEDIA_ROOTS:
+        candidate = (root / cleaned).resolve()
+        # resolve() follows symlinks, so this catches link-based escapes too
+        if candidate.is_relative_to(root) and candidate.exists():
+            return candidate
 
-    return resolved
+    raise ValueError(f"path is not inside any allowed root: {user_path}")
+
+
+# 🚨 VERIFIED GAP (2 Aug 2026): resolve() does NOT resolve hard links.
+# A hard link created inside an allowed root, pointing at a file outside it,
+# passes every check above. Add this if untrusted processes can write to your
+# roots. For a single-user Mac it is low risk, but it is a real hole.
+def reject_hard_links(p: Path) -> Path:
+    """Refuse files with more than one directory entry pointing at them."""
+    if p.is_file() and p.stat().st_nlink > 1:
+        raise ValueError(f"refusing hard-linked file: {p}")
+    return p
+
+
+def relative_to_root(p: Path) -> str:
+    """Shorten an absolute path for display and for storing in the database."""
+    for root in MEDIA_ROOTS:
+        if p.is_relative_to(root):
+            return f"{root.name}/{p.relative_to(root)}"
+    return str(p)
 
 
 # ------------------------------------------------------------ hub helpers
@@ -224,44 +282,53 @@ def notify(chat_id, text):
 def h_selftest(payload):
     """Prove the whole chain works end to end."""
     return {"ok": True, "host": socket.gethostname(),
-            "media_root": str(MEDIA_ROOT)}
+            "roots": [str(r) for r in MEDIA_ROOTS]}
 
 
 def h_rank_media(payload):
-    """Score photos and videos in a folder. Full pipeline is in file 07."""
-    folder = safe_path(payload.get("path", "Photos"))
+    """Score photos and videos in a folder. Full pipeline is in file 03."""
+    folder = safe_path(payload.get("path", "Media/Photos"))
 
-    from rank_media import rank_folder      # see file 07
-    summary = rank_folder(folder)
+    # Stop the Mac sleeping mid-job. Can take up to 25 minutes.
+    keep_awake = subprocess.Popen(["caffeinate", "-s"])
+    try:
+        from rank_media import rank_folder
+        summary = rank_folder(folder)
+    finally:
+        keep_awake.terminate()
 
     return {
-        "folder": str(folder.relative_to(MEDIA_ROOT)),
+        "folder": relative_to_root(folder),
         "scored": summary["count"],
+        "distinct": summary.get("distinct"),
         "top": summary["top"][:10],
     }
 
 
 def h_reel_render(payload):
-    """Build a short video from already-scored clips. See file 08."""
+    """Build a short video from already-scored clips. See file 09."""
     from build_reel import build_reel
     out = build_reel(
         description=payload.get("description", ""),
-        media_root=MEDIA_ROOT,
+        target_seconds=int(payload.get("seconds", 30)),
     )
-    return {"output": str(Path(out).relative_to(MEDIA_ROOT))}
+    return {"output": relative_to_root(Path(out))}
 
 
-def h_music_playlist(payload):
-    """Build or refresh an Apple Music playlist. See file 09."""
-    from music_sync import build_playlist
-    return build_playlist(mood=payload.get("mood", "recent favourites"))
+def h_group_events(payload):
+    """Group photos into events, then name them. See file 10."""
+    from group_photos import group_events
+    from name_events import name_events
+    result = group_events()
+    name_events()
+    return result
 
 
 HANDLERS = {
-    "selftest":       h_selftest,
-    "rank_media":     h_rank_media,
-    "reel_render":    h_reel_render,
-    "music_playlist": h_music_playlist,
+    "selftest":     h_selftest,
+    "rank_media":   h_rank_media,
+    "reel_render":  h_reel_render,
+    "group_events": h_group_events,
 }
 
 
@@ -302,9 +369,11 @@ def run_one(job):
 
 
 def main():
-    print(f"Mac agent starting. hub={HUB} media_root={MEDIA_ROOT}", flush=True)
-    if not MEDIA_ROOT.exists():
-        sys.exit(f"MEDIA_ROOT does not exist: {MEDIA_ROOT}")
+    print(f"Mac agent starting. hub={HUB}", flush=True)
+    print(f"allowed roots: {[str(r) for r in MEDIA_ROOTS]}", flush=True)
+    missing = [str(r) for r in MEDIA_ROOTS if not r.exists()]
+    if missing:
+        sys.exit(f"these roots do not exist: {missing}")
 
     backoff = POLL_SECONDS
 
@@ -337,6 +406,8 @@ if __name__ == "__main__":
 
 ---
 
+
+
 ## Step 4 — Test the safety check first
 
 **Do this before running the agent.** It is the one thing that must not be
@@ -345,30 +416,41 @@ wrong.
 ```bash
 source ~/.venvs/aihub/bin/activate
 cd ~/Documents/Code/aihub
-export MEDIA_ROOT=~/Media
+export MEDIA_ROOTS="$HOME/Media:$HOME/Downloads"
 
 python3 - <<'PY'
 import os
 from pathlib import Path
-MEDIA_ROOT = Path(os.environ["MEDIA_ROOT"]).expanduser().resolve()
+
+MEDIA_ROOTS = [Path(p).expanduser().resolve()
+               for p in os.environ["MEDIA_ROOTS"].split(":")]
 
 def safe_path(user_path):
+    if not user_path or not isinstance(user_path, str):
+        raise ValueError("no path given")
     cleaned = user_path.strip().lstrip("/").replace("~", "")
-    resolved = (MEDIA_ROOT / cleaned).resolve()
-    if not resolved.is_relative_to(MEDIA_ROOT):
-        raise ValueError("escapes root")
-    if not resolved.exists():
-        raise ValueError("does not exist")
-    return resolved
+    for root in MEDIA_ROOTS:
+        candidate = (root / cleaned).resolve()
+        if candidate.is_relative_to(root) and candidate.exists():
+            return candidate
+    raise ValueError("not inside any allowed root")
 
 tests = [
-    ("Photos",                    "allow"),
-    ("Photos/../Videos",          "allow"),   # stays inside, fine
+    # Must be allowed
+    ("Photos",                    "allow"),   # inside ~/Media
+    ("Photos/../Videos",          "allow"),   # goes up but stays inside
+    # Must be blocked
     ("../.ssh",                   "block"),
     ("../../etc/passwd",          "block"),
     ("/etc/passwd",               "block"),
     ("~/.ssh/id_rsa",             "block"),
     ("Photos/../../Documents",    "block"),
+    ("",                          "block"),
+    ("Photos/does_not_exist",     "block"),
+    # The multi-root trap: Documents must stay blocked even though
+    # ~/Downloads is now a root and both are siblings under $HOME
+    ("../Documents",              "block"),
+    ("../Library/Keychains",      "block"),
 ]
 
 for path, expected in tests:
@@ -382,18 +464,20 @@ for path, expected in tests:
 PY
 ```
 
-**Every line must say `OK`.** If any says `WRONG`, stop and fix `safe_path`
+**Every line must say** `OK`**.** If any says `WRONG`, stop and fix `safe_path`
 before continuing. A wrong result here means a chat message can read your SSH
 keys.
 
 ---
+
+
 
 ## Step 5 — Run the agent
 
 ```bash
 source ~/.venvs/aihub/bin/activate
 set -a; source ~/.config/aihub/.env; set +a
-export MEDIA_ROOT=~/Media
+export MEDIA_ROOTS="$HOME/Media:$HOME/Downloads"
 
 python ~/Documents/Code/aihub/agent.py
 ```
@@ -414,6 +498,8 @@ Mac did it, the answer went back.
 
 ---
 
+
+
 ## Step 6 — Keep it running
 
 Create `~/Library/LaunchAgents/com.poojan.aihub-agent.plist`:
@@ -429,7 +515,7 @@ Create `~/Library/LaunchAgents/com.poojan.aihub-agent.plist`:
   <array>
     <string>/bin/zsh</string>
     <string>-lc</string>
-    <string>source ~/.venvs/aihub/bin/activate &amp;&amp; set -a &amp;&amp; source ~/.config/aihub/.env &amp;&amp; set +a &amp;&amp; export MEDIA_ROOT=$HOME/Media &amp;&amp; exec python $HOME/Documents/Code/aihub/agent.py</string>
+    <string>source ~/.venvs/aihub/bin/activate && set -a && source ~/.config/aihub/.env && set +a && export MEDIA_ROOTS=$HOME/Media:$HOME/Downloads && exec python $HOME/Documents/Code/aihub/agent.py</string>
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
@@ -449,7 +535,49 @@ the "just woke from sleep, no network yet" case without spamming.
 
 ---
 
+
+
 ## Step 7 — Long jobs and sleep
+
+---
+
+
+
+## 🚨 Long jobs die when you close the lid
+
+✅ **Verified 2 Aug 2026** from the `caffeinate(8)` man page: the `-s` assertion is
+*"valid only when system is running on AC power"*, and **clamshell sleep overrides
+IOKit power assertions** unless an external display and power adapter are attached.
+
+**So** `caffeinate -s` **does NOT keep a 25-minute photo scan alive if you shut the
+lid.** The job stops mid-run and sits at `running` until the hourly
+`/jobs/reclaim` puts it back.
+
+
+| Flag | Prevents                         |
+| ---- | -------------------------------- |
+| `-d` | Display sleep                    |
+| `-i` | System **idle** sleep            |
+| `-s` | System sleep — **AC power only** |
+| `-u` | Declares user activity           |
+
+
+**What to do, in order of preference:**
+
+
+| Fix                                         | How                                                                                 | Trade-off                                            |
+| ------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 🏆 Leave the lid open on power for big runs | Habit                                                                               | Free, reliable                                       |
+| 🏆 Make jobs resumable                      | The ranker already skips already-scored files — just re-run                         | Costs nothing; a killed job resumes where it stopped |
+| Prevent sleep on power in System Settings   | Lock Screen → "Prevent automatic sleeping on power adapter when the display is off" | Doesn't beat clamshell sleep                         |
+| External display attached                   | Hardware                                                                            | Then clamshell stays awake                           |
+| ❌ `pmset -a disablesleep 1`                 | Requires sudo, disables sleep globally                                              | Don't — it's a foot-gun you'll forget                |
+
+
+🏆 **The resumability fix is the real answer.** Because `rank_folder` skips files
+already in `index.sqlite`, a job killed halfway just needs re-running. Keep
+`caffeinate -s` (it helps on power with the lid open) and rely on the reclaim
+loop plus resumability for everything else.
 
 Scoring 5,000 photos takes 15–25 minutes. If your Mac sleeps halfway, the job
 is stuck as `running` forever.
@@ -486,6 +614,8 @@ Run it from the Worker's `scheduled` function.
 
 ---
 
+
+
 ## Step 8 — Adding a new job type
 
 Three small edits:
@@ -505,7 +635,7 @@ def h_transcribe(payload):
     return {"text": out.stdout[:5000]}
 ```
 
-2. **Register it:**
+1. **Register it:**
 
 ```python
 HANDLERS = {
@@ -514,40 +644,50 @@ HANDLERS = {
 }
 ```
 
-3. **Add a Telegram command** that queues it (file 05).
+1. **Add a Telegram command** that queues it (appendix A1).
 
 That is the whole extension pattern.
 
 ---
 
+
+
 ## What lives where — quick reference
 
-| Task | Machine | Why |
-|---|---|---|
-| Understand the request | VM or Mac | Cheap either way |
-| **Walk folders, read files** | **Mac only** | The files are there. Nothing else can |
-| Score photos with CLIP | Mac | Free, fast, private |
-| Describe photos with Gemma | Mac | Free, private |
-| Write a video edit plan | Cloud (DeepSeek) | Needs better reasoning |
-| Render with ffmpeg | Mac | The video files are there |
-| Store the job queue | VM | Must be awake when the Mac is not |
-| Send the Telegram reply | Either | Whoever finished the work |
+
+| Task                         | Machine          | Why                                   |
+| ---------------------------- | ---------------- | ------------------------------------- |
+| Understand the request       | VM or Mac        | Cheap either way                      |
+| **Walk folders, read files** | **Mac only**     | The files are there. Nothing else can |
+| Score photos with CLIP       | Mac              | Free, fast, private                   |
+| Describe photos with Gemma   | Mac              | Free, private                         |
+| Write a video edit plan      | Cloud (DeepSeek) | Needs better reasoning                |
+| Render with ffmpeg           | Mac              | The video files are there             |
+| Store the job queue          | VM               | Must be awake when the Mac is not     |
+| Send the Telegram reply      | Either           | Whoever finished the work             |
+
 
 ---
+
+
 
 ## Troubleshooting
 
-| Problem | Cause | Fix |
-|---|---|---|
-| Agent prints "hub unreachable" forever | Wrong `HUB_URL`, or the Worker not deployed | `curl $HUB_URL/` by hand |
-| Job stays `queued` | Agent not running | `tail /tmp/aihub-agent.err` |
-| Job stuck at `running` | Mac slept mid-job | Add the reclaim query in step 7 |
-| "path escapes the media root" | Your folder is outside `~/Media` | Move it, or add a symlink **inside** `~/Media` |
-| Works by hand, fails under launchd | launchd has a minimal environment | Use the `zsh -lc` wrapper shown above |
-| Agent dies after Mac sleeps | Old socket | `KeepAlive` restarts it; backoff handles the rest |
-| Telegram reply never arrives | `TELEGRAM_TOKEN` not in the agent's env | Add it to `~/.config/aihub/.env` |
+
+| Problem                                | Cause                                       | Fix                                               |
+| -------------------------------------- | ------------------------------------------- | ------------------------------------------------- |
+| Agent prints "hub unreachable" forever | Wrong `HUB_URL`, or the Worker not deployed | `curl $HUB_URL/` by hand                          |
+| Job stays `queued`                     | Agent not running                           | `tail /tmp/aihub-agent.err`                       |
+| Job stuck at `running`                 | Mac slept mid-job                           | Add the reclaim query in step 7                   |
+| "path escapes the media root"          | Your folder is outside `~/Media`            | Move it, or add a symlink **inside** `~/Media`    |
+| Works by hand, fails under launchd     | launchd has a minimal environment           | Use the `zsh -lc` wrapper shown above             |
+| Agent dies after Mac sleeps            | Old socket                                  | `KeepAlive` restarts it; backoff handles the rest |
+| Telegram reply never arrives           | `TELEGRAM_TOKEN` not in the agent's env     | Add it to `~/.config/aihub/.env`                  |
+
 
 ---
+
+
 
 ## Prompt for AI
 
@@ -561,7 +701,8 @@ It tests this function, which you should import from a module called agent:
     safe_path(user_path: str) -> Path
 
 Behaviour being tested:
-- MEDIA_ROOT is a folder. Any path that resolves INSIDE it is allowed and
+- MEDIA_ROOTS is a colon-separated list of folders. Any path that resolves
+  INSIDE one of them is allowed and
   returned as a resolved Path.
 - Any path that resolves OUTSIDE it must raise ValueError.
 - A path that does not exist must raise ValueError.
@@ -570,7 +711,7 @@ Write these tests:
 
 1. A pytest fixture that creates a temporary folder using tmp_path, makes
    subfolders "Photos" and "Videos" inside it, creates a file
-   "Photos/a.jpg", sets the environment variable MEDIA_ROOT to that temporary
+   "Photos/a.jpg", sets the environment variable MEDIA_ROOTS to that temporary
    folder, and reloads the agent module so it picks up the new value.
 
 2. Tests that MUST be allowed:
@@ -587,7 +728,7 @@ Write these tests:
    - ""                       (empty string)
    - "Photos/does_not_exist"
 
-4. A test that creates a symbolic link inside MEDIA_ROOT pointing to a folder
+4. A test that creates a symbolic link inside a root pointing to a folder
    OUTSIDE it, and confirms that passing the link's name raises ValueError.
    This is the most important test.
 
@@ -601,16 +742,3 @@ Rules:
 
 ---
 
-## Check you are done
-
-- [ ] Every line of the safety test in step 4 prints `OK`
-- [ ] The `selftest` job completes end to end
-- [ ] Agent survives stopping and restarting the hub
-- [ ] Agent restarts automatically after a Mac reboot
-- [ ] A job queued while the Mac is asleep runs when it wakes
-- [ ] A path outside `~/Media` is rejected with a clear message
-- [ ] Telegram gets a reply when a job finishes
-
----
-
-Next: [07 — Photo and video ranker](07-photo-video-ranker.md)

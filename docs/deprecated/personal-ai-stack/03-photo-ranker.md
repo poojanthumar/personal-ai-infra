@@ -1,5 +1,9 @@
 # 07 — Photo and Video Ranker
 
+> ⚠️ **Anything marked ⚠️ in this file is unverified.** All of it is answered
+> by the prompt in [⚠️ Verify with AI](#-verify-with-ai) at the bottom — paste it
+> into Gemini or any web-enabled AI and update this file with the result.
+
 **Goal:** score every photo and video clip in a 10 GB+ folder by how good it
 looks, so you can pick the best shots for reels and albums.
 
@@ -7,10 +11,12 @@ looks, so you can pick the best shots for reels and albums.
 
 **Cost:** ₹0. Completely local. Nothing leaves your Mac.
 
-**Build this first after file 01.** It gives you real value on day one and it
+**Build this first after file 02.** It gives you real value on day one and it
 produces the data every other media feature needs.
 
 ---
+
+
 
 ## Why this is free
 
@@ -18,11 +24,13 @@ The obvious approach — send the photos to an AI model and ask "which look
 best?" — is impossibly expensive. Here is the arithmetic for **one minute** of
 1080p video at 1 frame per second (60 frames):
 
-| Approach | Cost |
-|---|---|
-| Claude Opus 5, standard-resolution frames (~1,600 tokens each) | ~96,000 tokens ≈ **₹85** |
+
+| Approach                                                        | Cost                       |
+| --------------------------------------------------------------- | -------------------------- |
+| Claude Opus 5, standard-resolution frames (~1,600 tokens each)  | ~96,000 tokens ≈ **₹85**   |
 | Claude Opus 5, high-resolution frames (up to 4,784 tokens each) | ~287,000 tokens ≈ **₹250** |
-| **CLIP on your Mac** | **₹0**, about 1–2 seconds |
+| **CLIP on your Mac**                                            | **₹0**, about 1–2 seconds  |
+
 
 Your 10 GB folder is roughly 3–5 hours of footage. Through a premium model that
 is **₹15,000–25,000 for one pass** — five to ten times your entire monthly
@@ -33,24 +41,30 @@ it, and only a small text summary is ever sent anywhere.
 
 ---
 
+
+
 ## What "aesthetic score" actually means
 
 You score on separate, independent axes and store all of them. That way you can
 re-rank later without re-processing 10 GB.
 
-| Axis | How it is measured | What it catches |
-|---|---|---|
-| **Aesthetics** | CLIP image features → a small trained scoring head | "Does this look good?" |
-| **Sharpness** | Variance of the Laplacian (an edge-detection measure) | Blurry and out-of-focus shots |
-| **Exposure** | Histogram clipping at both ends | Too dark, blown-out highlights |
-| **Faces** | Face detection, plus eyes-open where possible | Portraits worth keeping |
-| **Novelty** | Perceptual hash + CLIP similarity | Collapses 12 near-identical burst shots to the best one |
-| **Semantics** | Local vision model caption | Lets you ask for "the beach ones" |
+
+| Axis           | How it is measured                                    | What it catches                                         |
+| -------------- | ----------------------------------------------------- | ------------------------------------------------------- |
+| **Aesthetics** | CLIP image features → a small trained scoring head    | "Does this look good?"                                  |
+| **Sharpness**  | Variance of the Laplacian (an edge-detection measure) | Blurry and out-of-focus shots                           |
+| **Exposure**   | Histogram clipping at both ends                       | Too dark, blown-out highlights                          |
+| **Faces**      | Face detection, plus eyes-open where possible         | Portraits worth keeping                                 |
+| **Novelty**    | Perceptual hash + CLIP similarity                     | Collapses 12 near-identical burst shots to the best one |
+| **Semantics**  | Local vision model caption                            | Lets you ask for "the beach ones"                       |
+
 
 **The dedup axis alone transforms a camera roll.** Most people's "10 GB" is
 really 2 GB of distinct moments plus 8 GB of near-duplicates.
 
 ---
+
+
 
 ## The final score is *your* taste, not a stranger's
 
@@ -60,9 +74,11 @@ step is what makes the tool feel personal rather than generic. See step 6.
 
 ---
 
+
+
 ## Step 1 — Install
 
-Already done in file 01, step 8. Confirm:
+Already done in file 02, step 8. Confirm:
 
 ```bash
 source ~/.venvs/media/bin/activate
@@ -77,29 +93,49 @@ will be roughly 5× slower.
 
 ---
 
+
+
 ## Step 2 — Get the aesthetic scoring head
 
 CLIP turns an image into a list of 768 numbers. The aesthetic head is a tiny
 model that turns those numbers into a score out of 10.
 
-⚠️ The commonly used one is the **LAION aesthetic predictor v2**. Download the
-weights file (`sac+logos+ava1-l14-linearMSE.pth`, about 16 MB) from the LAION
-aesthetic-predictor repository on GitHub, and save it to
-`~/.cache/aesthetic/`. Search "LAION aesthetic predictor v2 weights" if the
-path has moved.
+✅ **Verified location (Aug 2026):** the official repository is
+
+```
+https://github.com/christophschuhmann/improved-aesthetic-predictor
+```
+
+The weight files it contains are:
+
+```
+ava+logos-l14-linearMSE.pth     ← use this one
+ava+logos-l14-reluMSE.pth
+```
+
+The `l14` in the name means it expects **CLIP ViT-L/14** embeddings, which is
+what the script below uses. Read the repository's README to confirm the exact
+preprocessing before relying on the absolute score values.
 
 ```bash
 mkdir -p ~/.cache/aesthetic
-# place the .pth file in that folder
+# place ava+logos-l14-linearMSE.pth in that folder
 ls -la ~/.cache/aesthetic/
 ```
 
-**If you cannot find the weights:** the script below falls back to a
+⚠️ No officially designated successor to this predictor exists from the same
+maintainers. Other aesthetic scorers exist but none is clearly better maintained.
+
+**If you cannot get the weights:** the script below falls back to a
 CLIP-prompt-based score (comparing each image against text like "a beautiful
 professional photograph" versus "a blurry amateur snapshot"). It is less
 accurate but works with no extra download, and you can add the head later.
+Because you tune the weights to your own ratings in step 6 anyway, the fallback
+is more usable than it sounds.
 
 ---
+
+
 
 ## Step 3 — The database
 
@@ -166,6 +202,8 @@ def connect(db_path="~/Media/index.sqlite"):
 
 ---
 
+
+
 ## Step 4 — The scoring script
 
 Save as `~/Documents/Code/aihub/rank_media.py`.
@@ -194,7 +232,7 @@ PHOTO_EXT = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp", ".tif", ".tiff"
 VIDEO_EXT = {".mov", ".mp4", ".m4v", ".avi", ".mkv"}
 
 DEVICE = "mps" if torch.backends.mps.is_available() else "cpu"
-AES_WEIGHTS = Path("~/.cache/aesthetic/sac+logos+ava1-l14-linearMSE.pth").expanduser()
+AES_WEIGHTS = Path("~/.cache/aesthetic/ava+logos-l14-linearMSE.pth").expanduser()
 
 
 # ------------------------------------------------------------------ models
@@ -502,13 +540,23 @@ if __name__ == "__main__":
     print(json.dumps(result, indent=2)[:3000])
 ```
 
+
+
 ---
+
+
 
 ## Step 5 — Run it
 
 ```bash
 source ~/.venvs/media/bin/activate
-export MEDIA_ROOT=~/Media
+export MEDIA_ROOTS="$HOME/Media:$HOME/Downloads"
+
+🚨 **`caffeinate -s` will not save a long run from a closed lid** — it only works
+on AC power and clamshell sleep overrides it. Leave the lid open for big scans.
+The good news: **the scan is resumable** — already-scored files are skipped, so
+re-running picks up where it stopped. Details in
+[05 — Mac agent](05-mac-agent.md) §7.
 cd ~/Documents/Code/aihub
 
 # Start small — try 20-30 files first
@@ -529,6 +577,8 @@ something like "5,000 items collapse to 1,800 distinct moments" — that number
 is the single most useful thing this tool produces.
 
 ---
+
+
 
 ## Step 6 — Teach it your taste
 
@@ -594,6 +644,8 @@ then re-score. Re-scoring recalculates `final_score` from the stored axis values
 
 ---
 
+
+
 ## Step 7 — Add captions so you can search by words
 
 This is what lets you later say "make a reel about the beach trip".
@@ -646,7 +698,7 @@ for r in rows:
 conn.commit()
 ```
 
-**Note the model name: `private-local`.** That is the tier with no cloud
+**Note the model name:** `private-local`**.** That is the tier with no cloud
 fallback. If your Mac is busy, this fails rather than sending your photos to
 Google. That is deliberate.
 
@@ -663,6 +715,8 @@ b64 = base64.b64encode(buf.getvalue()).decode()
 ```
 
 ---
+
+
 
 ## Step 8 — Useful queries
 
@@ -698,9 +752,11 @@ ORDER BY final_score DESC LIMIT 10;"
 
 ---
 
+
+
 ## Step 9 — Connect it to Telegram
 
-The handler in file 06 already calls `rank_folder`. Once this file works:
+The handler in file 05 already calls `rank_folder`. Once this file works:
 
 ```
 /rank Photos/Beach
@@ -710,20 +766,26 @@ The Mac scores the folder and messages you the top 10. Cost: ₹0.
 
 ---
 
+
+
 ## Troubleshooting
 
-| Problem | Cause | Fix |
-|---|---|---|
-| Very slow (under 5 images/sec) | Running on CPU | Check `torch.backends.mps.is_available()` |
-| `cv2.imread` returns None on HEIC | OpenCV can't read HEIC | The PIL fallback in the code handles it; make sure `pillow-heif` is installed if it still fails |
-| Aesthetic scores all near 5 | Weights file missing, using fallback | Get the LAION weights (step 2) |
-| Memory error partway through | CLIP plus a big model loaded together | Close Ollama during a big scoring run |
-| Dedup groups everything together | `max_distance` too high | Lower it to 4 |
-| Dedup groups nothing | Too low | Raise it to 8 |
-| Video scenes not detected | Threshold wrong for your footage | Try `ContentDetector(threshold=20)` for subtle cuts |
-| Job dies at exactly the same file | Corrupt file | The try/except skips it; check the printed name |
+
+| Problem                           | Cause                                 | Fix                                                                                             |
+| --------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Very slow (under 5 images/sec)    | Running on CPU                        | Check `torch.backends.mps.is_available()`                                                       |
+| `cv2.imread` returns None on HEIC | OpenCV can't read HEIC                | The PIL fallback in the code handles it; make sure `pillow-heif` is installed if it still fails |
+| Aesthetic scores all near 5       | Weights file missing, using fallback  | Get the LAION weights (step 2)                                                                  |
+| Memory error partway through      | CLIP plus a big model loaded together | Close Ollama during a big scoring run                                                           |
+| Dedup groups everything together  | `max_distance` too high               | Lower it to 4                                                                                   |
+| Dedup groups nothing              | Too low                               | Raise it to 8                                                                                   |
+| Video scenes not detected         | Threshold wrong for your footage      | Try `ContentDetector(threshold=20)` for subtle cuts                                             |
+| Job dies at exactly the same file | Corrupt file                          | The try/except skips it; check the printed name                                                 |
+
 
 ---
+
+
 
 ## Prompt for AI
 
@@ -776,6 +838,8 @@ Rules:
 
 ---
 
+
+
 ## Check you are done
 
 - [ ] `torch MPS: True`
@@ -789,4 +853,21 @@ Rules:
 
 ---
 
-Next: [08 — Reels pipeline](08-reels-pipeline.md)
+
+
+## ✅ Verified 2 Aug 2026 — three upgrades worth taking
+
+
+
+### 1. 🏆 Replace Haar cascades with MediaPipe
+
+> *"OpenCV Haar Cascades: **SUPERSEDED.** Highly sensitive to lighting/rotation,
+> produces severe false positives, and lacks modern hardware acceleration."*
+
+MediaPipe Face Mesh gives you faces **plus eye-aspect-ratio** — so you get
+eyes-open detection, which the axis table promised and Haar can't deliver.
+
+```bash
+pip install mediapipe        # v0.10.x, runs on Apple Silicon, no compilation
+```
+

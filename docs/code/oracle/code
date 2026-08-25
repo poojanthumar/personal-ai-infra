@@ -1,0 +1,5 @@
+
+
+ssh -i /Users/poojanthumar/Library/Mobile\ Documents/com\~apple\~CloudDocs/Code/secrets/ssh-keys-oracle-vm.key ubuntu@129.225.94.223
+
+psql "postgresql://aihub:PASSWORD@localhost/aihub"

@@ -1,5 +1,10 @@
 # 08 — Reels Pipeline
 
+
+> ⚠️ **Anything marked ⚠️ in this file is unverified.** All of it is answered
+> by the prompt in [⚠️ Verify with AI](#-verify-with-ai) at the bottom — paste it
+> into Gemini or any web-enabled AI and update this file with the result.
+
 **Goal:** turn a request like "30 second beach trip reel, upbeat" into a
 finished vertical video, using your already-scored clips and your own music.
 
@@ -7,7 +12,7 @@ finished vertical video, using your already-scored clips and your own music.
 
 **Cost:** about ₹0.05 per reel (one small AI call). Rendering is free.
 
-**Requires:** file 07 done, so `index.sqlite` has scores for your clips.
+**Requires:** file 03 done, so `index.sqlite` has scores for your clips.
 
 ---
 
@@ -384,7 +389,7 @@ def build_reel(description, media_root="~/Media", target_seconds=30,
     manifest = build_manifest(description, target_seconds, music_file)
     if len(manifest["clips"]) < 3:
         raise ValueError("fewer than 3 scored clips available — run the "
-                         "ranker (file 07) first")
+                         "ranker (file 03) first")
 
     print(f"asking {model} for an edit plan "
           f"({len(manifest['clips'])} candidate clips)...")
@@ -460,7 +465,7 @@ if __name__ == "__main__":
 ```bash
 source ~/.venvs/media/bin/activate
 set -a; source ~/.config/aihub/.env; set +a
-export MEDIA_ROOT=~/Media
+export MEDIA_ROOTS="$HOME/Media:$HOME/Downloads"
 cd ~/Documents/Code/aihub
 
 python build_reel.py "30 second beach trip, upbeat"
@@ -473,7 +478,7 @@ open ~/Media/Output/
 
 ## Step 6 — Connect to Telegram
 
-The handler already exists in file 06. Once this works:
+The handler already exists in file 05. Once this works:
 
 ```
 /reel 30 second beach trip, upbeat
@@ -544,7 +549,7 @@ def snap_to_beats(plan, beats, tolerance=0.25):
 
 | Problem | Cause | Fix |
 |---|---|---|
-| "fewer than 3 scored clips" | Ranker not run yet | Do file 07 first |
+| "fewer than 3 scored clips" | Ranker not run yet | Do file 03 first |
 | Plan validation fails repeatedly | Model too weak for structured output | Use `tier2-cheap` (DeepSeek), not a local 8B model |
 | JSON parse error | Model wrapped the JSON in fences | The fence stripper handles it; if not, add "Return raw JSON, no markdown" to the prompt |
 | ffmpeg "Invalid data" | Corrupt or unusual source file | Check that file plays; re-encode it first |
@@ -615,4 +620,52 @@ Rules:
 
 ---
 
-Next: [09 — Apple Music automation](09-apple-music.md)
+## ⚠️ Verify with AI
+
+| # | Unverified | Why it matters |
+|---|---|---|
+| 1 | ffmpeg filter syntax for zoompan and afade | Flags shift between versions |
+| 2 | librosa current beat-tracking API | `beat_track` return shape has changed before |
+| 3 | Whether hardware encoding is available on M1 | Would speed renders up a lot |
+| 4 | Correct settings for Instagram/YouTube Shorts | Wrong specs get re-encoded badly |
+
+Paste this into Gemini or any web-enabled AI, then update this file with what comes back.
+
+```
+RULES — follow exactly:
+- Use only the official ffmpeg documentation and wiki, the librosa documentation,
+  and the platform's own creator/help documentation. No blogs, no tutorials.
+- Give the source URL and version for each answer.
+- If a filter or flag is deprecated, say so and give the replacement.
+
+I am assembling short vertical videos on an M1 Pro Mac with ffmpeg, driven by a
+JSON edit list. Photos become clips with a slow zoom; clips are cut, scaled,
+concatenated, and one music track is laid over the top with a fade-out.
+
+1. Verify this scale-and-crop-to-vertical filter chain is still correct and
+   efficient, and suggest a better one if not:
+   scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,format=yuv420p
+2. Verify the zoompan syntax for a slow zoom on a still image, and give the
+   official example:
+   zoompan=z='min(zoom+0.0012,1.25)':d=<frames>:s=1080x1920:fps=30
+   Is there a better-maintained filter for a Ken Burns effect now?
+3. Is the concat demuxer still the recommended way to join pre-encoded clips with
+   identical parameters, or is there something better? Give the official example.
+4. Verify the afade filter syntax for fading audio out over the last 1.5 seconds
+   of a known-length video.
+5. Does ffmpeg on Apple Silicon support hardware-accelerated H.264 encoding via
+   VideoToolbox? If so, give the exact flags, and say what quality or
+   compatibility trade-offs the documentation notes versus libx264.
+6. librosa: current API for tempo and beat times. Paste the official example.
+   What exactly does `beat_track` return in the current version — a scalar tempo
+   or an array? Any alternative the docs now prefer?
+7. Instagram Reels and YouTube Shorts: currently recommended resolution, frame
+   rate, video codec, audio codec, bitrate and maximum duration, from each
+   platform's own help documentation.
+
+Output as: | # | Answer | Official example | Source URL | Version |
+```
+
+---
+
+Next: [09 — Apple Music automation](A3-music-out-of-scope.md)

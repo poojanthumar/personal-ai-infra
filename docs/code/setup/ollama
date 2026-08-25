@@ -1,0 +1,24 @@
+brew services start ollama
+
+curl http://localhost:11434/api/tags
+
+ollama pull {model_name}
+
+ollama run qwen3:8b "In one sentence, what is memory bandwidth?
+
+curl http://localhost:11434/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen3:8b",
+    "messages": [{"role":"user","content":"Say OK and nothing else."}]
+  }'
+
+
+launchctl setenv OLLAMA_KEEP_ALIVE 24h
+launchctl setenv OLLAMA_MAX_LOADED_MODELS 3
+  
+brew services restart ollama
+
+echo 'export OLLAMA_KEEP_ALIVE=24h' >> ~/.zshrc
+echo 'export OLLAMA_MAX_LOADED_MODELS=3' >> ~/.zshrc
+
