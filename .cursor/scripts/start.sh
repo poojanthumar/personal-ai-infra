@@ -16,6 +16,12 @@ if [[ -n "${TAILSCALE_AUTHKEY:-}" ]] && command -v tailscale >/dev/null; then
   export ALL_PROXY=socks5://127.0.0.1:1055
   export HTTP_PROXY=http://127.0.0.1:1056
   export HTTPS_PROXY=http://127.0.0.1:1056
+  echo "Tailscale connected. Oracle VM hub: ${HUB_URL}"
+  echo "Reminder: TAILSCALE_AUTHKEY expires in ~90 days; renew at https://login.tailscale.com/admin/settings/keys"
+elif [[ -z "${TAILSCALE_AUTHKEY:-}" ]]; then
+  echo "TAILSCALE_AUTHKEY is not set in this run; Oracle VM (${ORACLE_VM_TAILSCALE_IP}) will be unreachable until the secret is available."
+else
+  echo "Tailscale is not installed; cannot join tailnet."
 fi
 
 if [[ "${LOCAL_DEV:-0}" == "1" ]]; then

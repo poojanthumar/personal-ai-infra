@@ -23,6 +23,11 @@ python3 -m venv dev/.venv
 dev/.venv/bin/pip install --upgrade pip
 dev/.venv/bin/pip install httpx psycopg2-binary requests
 
+echo "==> Installing Tailscale client (used with TAILSCALE_AUTHKEY at startup)"
+if ! command -v tailscale >/dev/null; then
+  curl -fsSL https://tailscale.com/install.sh | sh
+fi
+
 if [[ "${LOCAL_DEV:-0}" == "1" ]]; then
   echo "==> LOCAL_DEV=1: installing optional local Oracle-stack mirror"
   if ! command -v psql >/dev/null; then
