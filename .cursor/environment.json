@@ -1,0 +1,22 @@
+{
+  "name": "personal-ai-infra",
+  "user": "ubuntu",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "install": "bash .cursor/scripts/install.sh",
+  "start": "bash .cursor/scripts/start.sh",
+  "terminals": [
+    {
+      "name": "local-stack",
+      "command": "bash .cursor/scripts/run-local-stack.sh",
+      "description": "Starts local LiteLLM/queue/Ollama only when LOCAL_DEV=1; otherwise prints Oracle VM hub info."
+    }
+  ],
+  "ports": [
+    { "name": "litellm-local", "port": 4000 },
+    { "name": "queue-api-local", "port": 8000 },
+    { "name": "ollama-local", "port": 11434 }
+  ]
+}
