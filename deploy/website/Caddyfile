@@ -1,0 +1,18 @@
+# poojanthumar.in — public TLS on Caddy, app on loopback.
+# No Cloudflare Tunnel. Install as the VM Caddyfile (see docs/26).
+
+poojanthumar.in {
+	redir https://www.poojanthumar.in{uri} permanent
+}
+
+www.poojanthumar.in {
+	reverse_proxy 127.0.0.1:8080
+}
+
+wedding.poojanthumar.in {
+	reverse_proxy 127.0.0.1:8080
+}
+
+admin.poojanthumar.in {
+	reverse_proxy 127.0.0.1:8080
+}
