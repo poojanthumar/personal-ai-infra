@@ -9,9 +9,9 @@ source "$ROOT/dev/load-env.sh"
 
 if [[ -n "${TAILSCALE_AUTHKEY:-}" ]] && command -v tailscale >/dev/null; then
   if ! tailscale status >/dev/null 2>&1; then
-    sudo tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --outbound-http-proxy-listen=localhost:1056 >/tmp/tailscaled.log 2>&1 &
+    sudo -n tailscaled --tun=userspace-networking --socks5-server=localhost:1055 --outbound-http-proxy-listen=localhost:1056 >/tmp/tailscaled.log 2>&1 &
     sleep 2
-    sudo tailscale up --authkey="${TAILSCALE_AUTHKEY}" --accept-routes
+    sudo -n tailscale up --authkey="${TAILSCALE_AUTHKEY}" --accept-routes
   fi
   export ALL_PROXY=socks5://127.0.0.1:1055
   export HTTP_PROXY=http://127.0.0.1:1056

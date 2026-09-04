@@ -7,8 +7,8 @@ cd "$ROOT"
 echo "==> Installing client tooling"
 if ! command -v psql >/dev/null || ! python3 -m venv /tmp/venv-check >/dev/null 2>&1; then
   rm -rf /tmp/venv-check
-  sudo apt-get update
-  sudo apt-get install -y \
+  sudo -n apt-get update
+  sudo -n apt-get install -y \
     curl \
     git \
     openssh-client \
@@ -24,8 +24,15 @@ dev/.venv/bin/pip install --upgrade pip
 dev/.venv/bin/pip install httpx psycopg2-binary requests
 
 echo "==> Installing Tailscale client (used with TAILSCALE_AUTHKEY at startup)"
-if ! command -v tailscale >/dev/null; then
+if command -v tailscale >/dev/null; then
+  echo "Tailscale already installed: $(command -v tailscale)"
+elif sudo -n true >/dev/null 2>&1; then
+  # Official installer uses sudo internally; passwordless sudo is required here.
   curl -fsSL https://tailscale.com/install.sh | sh
+else
+  echo "Tailscale is not installed, and passwordless sudo is unavailable." >&2
+  echo "Install the tailscale package as root in .cursor/Dockerfile so Cloud Agent builds do not need sudo." >&2
+  exit 1
 fi
 
 if [[ "${LOCAL_DEV:-0}" == "1" ]]; then
