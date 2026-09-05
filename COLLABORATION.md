@@ -49,7 +49,8 @@ Connect Codex Desktop to the Oracle host and open
 
 Say `preview only` when you want to approve the preview before production. Say `roll back the
 last website deployment` to run the recorded rollback target. The preview service uses a
-separate database copy, is disabled at boot, and automatically stops after 24 hours.
+fresh database with synthetic seed data, is disabled at boot, and automatically stops after
+24 hours. Production data must never be copied to a public preview.
 The single DNS prerequisite is a wildcard `A` record for `*.poojanthumar.in`; adding a future
 site or preview does not require another DNS record.
 
