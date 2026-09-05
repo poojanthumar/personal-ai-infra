@@ -1,0 +1,11 @@
+---
+description: Infrastructure ownership and safe deployment workflow
+alwaysApply: true
+---
+
+# Infrastructure context
+
+Read `AGENTS.md` before work. This repo owns VM and Mac operations; website application
+code belongs in `personal-website-handler`. Treat `ops/` as the deployable source of truth.
+Never copy secrets into commands, commits, logs, or chat output. Verify every VM mutation
+with service health and public HTTPS checks.

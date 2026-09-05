@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.poojan.aihub-agent</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>source ~/.venvs/aihub/bin/activate &amp;&amp; set -a &amp;&amp; source ~/.config/aihub/.env &amp;&amp; set +a &amp;&amp; export MEDIA_ROOTS=$HOME/Documents:$HOME/Downloads &amp;&amp; exec python $HOME/Documents/Code/aihub/agent.py</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/tmp/aihub-agent.log</string>
+  <key>StandardErrorPath</key><string>/tmp/aihub-agent.err</string>
+</dict>
+</plist>

@@ -1,0 +1,5 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Requeue jobs left running for more than one hour.
+7 * * * * /home/ubuntu/aihub/maintenance.sh >> /home/ubuntu/aihub/maintenance.log 2>&1

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.poojan.litellm</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>source ~/.venvs/litellm/bin/activate &amp;&amp; set -a &amp;&amp; source ~/.config/litellm/.env &amp;&amp; set +a &amp;&amp; exec litellm --config ~/.config/litellm/config.yaml --port 4000</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/tmp/litellm.log</string>
+  <key>StandardErrorPath</key><string>/tmp/litellm.err</string>
+</dict>
+</plist>
