@@ -18,5 +18,6 @@ and `docs/ai-stack-build/01-PROGRESS.md` before changing the architecture. Read
 - Remote website agents work in `/home/ubuntu/workspaces/personal-website-handler`, never in
   `/opt/website-handler`. Their branch, preview, release, status, and rollback rules live in
   the website repository's `AGENTS.md` and `deploy/` scripts.
-- `test.wedding.poojanthumar.in` is an expiring branch preview on localhost:9080. The
+- `test-<site>.poojanthumar.in` is an expiring branch preview on localhost:9080. One
+  `*.poojanthumar.in` DNS record covers every current and future site. The
   `website-preview` service stays disabled and is started only during active website work.

@@ -44,12 +44,14 @@ Connect Codex Desktop to the Oracle host and open
 
 1. create a `codex/*` branch from `origin/main`;
 2. implement and test the committed change;
-3. start `https://test.wedding.poojanthumar.in` from that commit;
+3. start `https://test-<site>.poojanthumar.in` from that commit;
 4. merge and push `main`, deploy the exact commit, verify it, and stop the preview.
 
 Say `preview only` when you want to approve the preview before production. Say `roll back the
 last website deployment` to run the recorded rollback target. The preview service uses a
 separate database copy, is disabled at boot, and automatically stops after 24 hours.
+The single DNS prerequisite is a wildcard `A` record for `*.poojanthumar.in`; adding a future
+site or preview does not require another DNS record.
 
 ## Handoff contract
 

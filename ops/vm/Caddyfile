@@ -15,8 +15,6 @@ admin.poojanthumar.in {
 	reverse_proxy 127.0.0.1:8080
 }
 
-# The backend is disabled except while a branch preview is under review. The preview script
-# also installs a 24-hour expiry timer so an abandoned preview cannot run indefinitely.
-test.wedding.poojanthumar.in {
-	reverse_proxy 127.0.0.1:9080
-}
+# This file is empty while no preview is running. The preview script adds one exact
+# test-<site> route, reloads Caddy, and removes it when the preview stops.
+import /etc/caddy/preview.caddy
