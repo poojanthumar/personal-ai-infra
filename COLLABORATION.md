@@ -4,6 +4,11 @@ Agents do not inherit reliable memory from unrelated chats. Shared context shoul
 committed files, while each task prompt supplies the current outcome. `AGENTS.md` in each
 repository tells Codex what that repository owns and where the boundary is.
 
+The Oracle VM follows the same rule. Git records what changed and why; the checked-in agent
+rules record how to work; `/home/ubuntu/website-deployments/history.tsv` records what actually
+ran. A new agent reconstructs the current state by reading `AGENTS.md`, running
+`deploy/status-on-vm.sh`, and reading recent git history. It does not need the earlier chat.
+
 ## 1. Infrastructure task
 
 Open `/Users/poojanthumar/Documents/Code/personal-ai-infra` and ask Codex to inspect or
@@ -31,11 +36,26 @@ rolls back after a failed health check, and verifies the public HTTPS hosts.
 Example prompt: `Deploy the current origin/main using deploy/deploy-vm.sh. Report the old
 and new commit, service health, and public checks.`
 
+## Phone-driven remote website task
+
+Connect Codex Desktop to the Oracle host and open
+`/home/ubuntu/workspaces/personal-website-handler` as a project. A request such as
+`I do not like the wedding homepage button; make it clearer` causes the repository agent to:
+
+1. create a `codex/*` branch from `origin/main`;
+2. implement and test the committed change;
+3. start `https://test.wedding.poojanthumar.in` from that commit;
+4. merge and push `main`, deploy the exact commit, verify it, and stop the preview.
+
+Say `preview only` when you want to approve the preview before production. Say `roll back the
+last website deployment` to run the recorded rollback target. The preview service uses a
+separate database copy, is disabled at boot, and automatically stops after 24 hours.
+
 ## Handoff contract
 
 Every task should finish with the repository, commit hash, tests run, runtime changes, and
-remaining risks. A new agent can reconstruct state from git plus `AGENTS.md`; paste the
-previous commit hash into the next prompt when one task directly follows another.
+remaining risks. A new agent can reconstruct state from git, `AGENTS.md`, and the deployment
+ledger. Paste a previous commit hash only when a task must refer to that particular change.
 
 Use ChatGPT for product direction, copy, page structure, and design critique. Use Codex in
 the website repository for implementation and tests, and Codex in this repository for VM

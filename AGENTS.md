@@ -15,3 +15,8 @@ and `docs/ai-stack-build/01-PROGRESS.md` before changing the architecture. Read
 - For website delivery: test and commit in the website repo, push `main`, pull the exact commit
   on the VM, build, restart, check `/actuator/health`, then check all three public hosts.
 - Preserve the previous VM commit until verification succeeds so rollback is one checkout away.
+- Remote website agents work in `/home/ubuntu/workspaces/personal-website-handler`, never in
+  `/opt/website-handler`. Their branch, preview, release, status, and rollback rules live in
+  the website repository's `AGENTS.md` and `deploy/` scripts.
+- `test.wedding.poojanthumar.in` is an expiring branch preview on localhost:9080. The
+  `website-preview` service stays disabled and is started only during active website work.

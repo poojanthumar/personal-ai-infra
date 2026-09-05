@@ -1,0 +1,22 @@
+{
+	email poojanthumar@gmail.com
+}
+
+poojanthumar.in {
+	redir https://www.poojanthumar.in{uri} permanent
+}
+www.poojanthumar.in {
+	reverse_proxy 127.0.0.1:8080
+}
+wedding.poojanthumar.in {
+	reverse_proxy 127.0.0.1:8080
+}
+admin.poojanthumar.in {
+	reverse_proxy 127.0.0.1:8080
+}
+
+# The backend is disabled except while a branch preview is under review. The preview script
+# also installs a 24-hour expiry timer so an abandoned preview cannot run indefinitely.
+test.wedding.poojanthumar.in {
+	reverse_proxy 127.0.0.1:9080
+}
